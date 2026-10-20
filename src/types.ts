@@ -1,0 +1,19 @@
+export interface Bike {
+  id: string;
+  name: string;
+  description: string;
+  pricePerWeek: number;
+  deposit: number;
+  image: string; // URL изображения с сервера
+  features: string[];
+  badge?: string;
+  badgeColor?: string;
+  accentColor: string;
+}
+
+export interface SiteSettings {
+  phone: string;
+  address: string;
+  workHours: string;
+  whatsapp: string;
+}
