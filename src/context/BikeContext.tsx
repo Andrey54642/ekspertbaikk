@@ -1,13 +1,18 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Bike, SiteSettings } from '../types';
+import { isSupabaseConfigured } from '../config/supabase';
+import * as supabaseService from '../services/supabaseService';
 
 interface BikeContextType {
   bikes: Bike[];
   settings: SiteSettings;
-  addBike: (bike: Omit<Bike, 'id'>) => void;
-  updateBike: (id: string, bike: Partial<Bike>) => void;
-  deleteBike: (id: string) => void;
-  updateSettings: (settings: Partial<SiteSettings>) => void;
+  isLoading: boolean;
+  isSyncing: boolean;
+  addBike: (bike: Omit<Bike, 'id'>) => Promise<void>;
+  updateBike: (id: string, bike: Partial<Bike>) => Promise<void>;
+  deleteBike: (id: string) => Promise<void>;
+  updateSettings: (settings: Partial<SiteSettings>) => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const defaultBikes: Bike[] = [
@@ -47,43 +52,136 @@ const defaultSettings: SiteSettings = {
 const BikeContext = createContext<BikeContextType | undefined>(undefined);
 
 export function BikeProvider({ children }: { children: ReactNode }) {
-  const [bikes, setBikes] = useState<Bike[]>(() => {
-    const saved = localStorage.getItem('expertbikes_bikes');
-    return saved ? JSON.parse(saved) : defaultBikes;
-  });
+  const [bikes, setBikes] = useState<Bike[]>(defaultBikes);
+  const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const [settings, setSettings] = useState<SiteSettings>(() => {
-    const saved = localStorage.getItem('expertbikes_settings');
-    return saved ? JSON.parse(saved) : defaultSettings;
-  });
-
+  // Загрузка данных при старте
   useEffect(() => {
-    localStorage.setItem('expertbikes_bikes', JSON.stringify(bikes));
-  }, [bikes]);
+    loadData();
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('expertbikes_settings', JSON.stringify(settings));
-  }, [settings]);
+  const loadData = async () => {
+    setIsLoading(true);
 
-  const addBike = (bike: Omit<Bike, 'id'>) => {
-    const newBike: Bike = { ...bike, id: Date.now().toString() };
-    setBikes(prev => [...prev, newBike]);
+    if (isSupabaseConfigured()) {
+      // Загрузка из Supabase (общие данные для всех)
+      try {
+        const [bikesData, settingsData] = await Promise.all([
+          supabaseService.fetchBikes(),
+          supabaseService.fetchSettings(),
+        ]);
+
+        if (bikesData.length > 0) {
+          setBikes(bikesData);
+        }
+        if (settingsData) {
+          setSettings(settingsData);
+        }
+      } catch (error) {
+        console.error('Error loading from Supabase:', error);
+        // Fallback на localStorage
+        loadFromLocalStorage();
+      }
+    } else {
+      // Fallback на localStorage
+      loadFromLocalStorage();
+    }
+
+    setIsLoading(false);
   };
 
-  const updateBike = (id: string, updates: Partial<Bike>) => {
+  const loadFromLocalStorage = () => {
+    const savedBikes = localStorage.getItem('expertbikes_bikes');
+    const savedSettings = localStorage.getItem('expertbikes_settings');
+
+    if (savedBikes) {
+      try {
+        setBikes(JSON.parse(savedBikes));
+      } catch (e) {
+        console.error('Error parsing bikes:', e);
+      }
+    }
+
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch (e) {
+        console.error('Error parsing settings:', e);
+      }
+    }
+  };
+
+  // Сохранение в localStorage как backup
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('expertbikes_bikes', JSON.stringify(bikes));
+    }
+  }, [bikes, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('expertbikes_settings', JSON.stringify(settings));
+    }
+  }, [settings, isLoading]);
+
+  const addBike = async (bike: Omit<Bike, 'id'>) => {
+    setIsSyncing(true);
+
+    if (isSupabaseConfigured()) {
+      const id = await supabaseService.addBikeToSupabase(bike);
+      if (id) {
+        const newBike: Bike = { ...bike, id };
+        setBikes(prev => [...prev, newBike]);
+      }
+    } else {
+      const newBike: Bike = { ...bike, id: Date.now().toString() };
+      setBikes(prev => [...prev, newBike]);
+    }
+
+    setIsSyncing(false);
+  };
+
+  const updateBike = async (id: string, updates: Partial<Bike>) => {
+    setIsSyncing(true);
+
+    if (isSupabaseConfigured()) {
+      await supabaseService.updateBikeInSupabase(id, updates);
+    }
+
     setBikes(prev => prev.map(bike => bike.id === id ? { ...bike, ...updates } : bike));
+    setIsSyncing(false);
   };
 
-  const deleteBike = (id: string) => {
+  const deleteBike = async (id: string) => {
+    setIsSyncing(true);
+
+    if (isSupabaseConfigured()) {
+      await supabaseService.deleteBikeFromSupabase(id);
+    }
+
     setBikes(prev => prev.filter(bike => bike.id !== id));
+    setIsSyncing(false);
   };
 
-  const updateSettings = (newSettings: Partial<SiteSettings>) => {
+  const updateSettings = async (newSettings: Partial<SiteSettings>) => {
+    setIsSyncing(true);
+
+    if (isSupabaseConfigured()) {
+      await supabaseService.updateSettingsInSupabase(newSettings);
+    }
+
     setSettings(prev => ({ ...prev, ...newSettings }));
+    setIsSyncing(false);
+  };
+
+  const refreshData = async () => {
+    await loadData();
   };
 
   return (
-    <BikeContext.Provider value={{ bikes, settings, addBike, updateBike, deleteBike, updateSettings }}>
+    <BikeContext.Provider value={{ bikes, settings, isLoading, isSyncing, addBike, updateBike, deleteBike, updateSettings, refreshData }}>
       {children}
     </BikeContext.Provider>
   );

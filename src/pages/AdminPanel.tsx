@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useBikes } from '../context/BikeContext';
 import { Bike } from '../types';
-import { saveImage, resolveImageUrl, isLocalImage } from '../services/imageStorage';
+import { isSupabaseConfigured } from '../config/supabase';
+import { uploadImageToSupabase, deleteImageFromSupabase } from '../services/supabaseService';
 
 export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
-  const { bikes, settings, addBike, updateBike, deleteBike, updateSettings } = useBikes();
-  const [activeTab, setActiveTab] = useState<'bikes' | 'settings'>('bikes');
+  const { bikes, settings, addBike, updateBike, deleteBike, updateSettings, isSyncing, refreshData } = useBikes();
+  const [activeTab, setActiveTab] = useState<'bikes' | 'settings' | 'status'>('bikes');
   const [editingBike, setEditingBike] = useState<Bike | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
@@ -15,36 +16,24 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
   const [workHours, setWorkHours] = useState(settings.workHours);
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [resolvedImages, setResolvedImages] = useState<Record<string, string>>({});
+  const [refreshStatus, setRefreshStatus] = useState('');
 
-  // Загружаем изображения из IndexedDB
-  useEffect(() => {
-    const loadImages = async () => {
-      const images: Record<string, string> = {};
-      for (const bike of bikes) {
-        if (bike.image && isLocalImage(bike.image)) {
-          const resolved = await resolveImageUrl(bike.image);
-          if (resolved) {
-            images[bike.id] = resolved;
-          }
-        } else if (bike.image) {
-          images[bike.id] = bike.image;
-        }
-      }
-      setResolvedImages(images);
-    };
-    loadImages();
-  }, [bikes]);
-
-  const handleSaveSettings = () => {
-    updateSettings({ phone, address, workHours, whatsapp });
+  const handleSaveSettings = async () => {
+    await updateSettings({ phone, address, workHours, whatsapp });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
   };
 
-  const handleDeleteBike = (id: string) => {
-    deleteBike(id);
+  const handleDeleteBike = async (id: string) => {
+    await deleteBike(id);
     setShowDeleteConfirm(null);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshStatus('Обновление...');
+    await refreshData();
+    setRefreshStatus('Обновлено!');
+    setTimeout(() => setRefreshStatus(''), 2000);
   };
 
   return (
@@ -61,15 +50,27 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
                 <span className="text-xs text-gray-500 block">Эксперт Байк</span>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {isSyncing && (
+                <span className="text-yellow-400 text-xs hidden sm:block">
+                  <i className="fas fa-spinner fa-spin mr-1"></i>Синхронизация
+                </span>
+              )}
+              <button
+                onClick={handleRefresh}
+                className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                title="Обновить данные"
+              >
+                <i className="fas fa-sync-alt"></i>
+              </button>
               <a href="/" className="text-gray-400 hover:text-green-400 text-sm transition-colors hidden sm:block">
                 <i className="fas fa-external-link-alt mr-1"></i>На сайт
               </a>
               <button
                 onClick={onLogout}
-                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all"
               >
-                <i className="fas fa-sign-out-alt mr-1"></i>Выйти
+                <i className="fas fa-sign-out-alt mr-1"></i><span className="hidden sm:inline">Выйти</span>
               </button>
             </div>
           </div>
@@ -82,7 +83,7 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
             onClick={() => { setActiveTab('bikes'); setEditingBike(null); setIsAdding(false); }}
             className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'bikes' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
           >
-            <i className="fas fa-bicycle mr-2"></i>Электровелосипеды
+            <i className="fas fa-bicycle mr-2"></i>Велосипеды
           </button>
           <button
             onClick={() => { setActiveTab('settings'); setEditingBike(null); setIsAdding(false); }}
@@ -90,144 +91,129 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
           >
             <i className="fas fa-cog mr-2"></i>Настройки
           </button>
+          <button
+            onClick={() => { setActiveTab('status'); setEditingBike(null); setIsAdding(false); }}
+            className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'status' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            <i className="fas fa-database mr-2"></i>Статус
+          </button>
         </div>
 
-        {activeTab === 'bikes' && (
+        {/* Bikes Tab */}
+        {activeTab === 'bikes' && !editingBike && !isAdding && (
           <div>
-            {!editingBike && !isAdding && (
-              <>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-                  <h2 className="text-xl sm:text-2xl font-bold text-white">Управление электровелосипедами</h2>
-                  <button
-                    onClick={() => setIsAdding(true)}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-4 sm:px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-green-500/20 min-h-[44px] flex items-center justify-center w-full sm:w-auto"
-                  >
-                    <i className="fas fa-plus mr-2"></i>Добавить
-                  </button>
-                </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Управление электровелосипедами</h2>
+              <button
+                onClick={() => setIsAdding(true)}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-4 sm:px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-green-500/20 min-h-[44px] flex items-center justify-center w-full sm:w-auto"
+              >
+                <i className="fas fa-plus mr-2"></i>Добавить
+              </button>
+            </div>
 
+            <div className="grid gap-3 sm:gap-4">
+              {bikes.map((bike) => (
+                <div key={bike.id} className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center">
+                    {bike.image ? (
+                      <img src={bike.image} alt={bike.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <i className="fas fa-bicycle text-gray-600 text-xl sm:text-2xl"></i>
+                    )}
+                  </div>
 
-
-                <div className="grid gap-3 sm:gap-4">
-                  {bikes.map((bike) => (
-                    <div key={bike.id} className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-gray-800 flex-shrink-0 flex items-center justify-center">
-                        {resolvedImages[bike.id] ? (
-                          <img src={resolvedImages[bike.id]} alt={bike.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <i className="fas fa-bicycle text-gray-600 text-xl sm:text-2xl"></i>
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0 w-full sm:w-auto">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-base sm:text-lg font-bold text-white truncate">{bike.name}</h3>
-                          {bike.badge && (
-                            <span className="text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0 bg-green-500/20 text-green-400">{bike.badge}</span>
-                          )}
-                        </div>
-                        <p className="text-gray-400 text-xs sm:text-sm truncate">{bike.description}</p>
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
-                          <span className="text-green-400 font-bold text-xs sm:text-sm">{bike.pricePerWeek.toLocaleString()}₽/нед</span>
-                          <span className="text-yellow-400 text-xs sm:text-sm">Залог: {bike.deposit.toLocaleString()}₽</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
-                        <button
-                          onClick={() => setEditingBike(bike)}
-                          className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-initial min-h-[44px] flex items-center justify-center"
-                        >
-                          <i className="fas fa-edit mr-1"></i><span className="hidden sm:inline">Изменить</span><span className="sm:hidden">Изм.</span>
-                        </button>
-                        <button
-                          onClick={() => setShowDeleteConfirm(bike.id)}
-                          className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-initial min-h-[44px] flex items-center justify-center"
-                        >
-                          <i className="fas fa-trash mr-1"></i><span className="hidden sm:inline">Удалить</span><span className="sm:hidden">Уд.</span>
-                        </button>
-                      </div>
+                  <div className="flex-1 min-w-0 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-bold text-white">{bike.name}</h3>
+                      {bike.badge && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-green-500/20 text-green-400">{bike.badge}</span>
+                      )}
                     </div>
-                  ))}
-
-                  {bikes.length === 0 && (
-                    <div className="text-center py-16 bg-gray-800/30 rounded-2xl border border-gray-700/30">
-                      <i className="fas fa-bicycle text-gray-600 text-4xl mb-4"></i>
-                      <p className="text-gray-400">Нет электровелосипедов</p>
+                    <p className="text-gray-400 text-xs sm:text-sm line-clamp-2">{bike.description}</p>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
+                      <span className="text-green-400 font-bold text-xs sm:text-sm">{bike.pricePerWeek.toLocaleString()}₽/нед</span>
+                      <span className="text-yellow-400 text-xs sm:text-sm">Залог: {bike.deposit.toLocaleString()}₽</span>
+                      <span className="text-gray-500 text-xs">{bike.features.length} хар-к</span>
                     </div>
-                  )}
-                </div>
-              </>
-            )}
+                  </div>
 
-            {(editingBike || isAdding) && (
-              <BikeForm
-                bike={editingBike}
-                onSave={(bikeData) => {
-                  if (editingBike) {
-                    updateBike(editingBike.id, bikeData);
-                  } else {
-                    addBike(bikeData as Omit<Bike, 'id'>);
-                  }
-                  setEditingBike(null);
-                  setIsAdding(false);
-                }}
-                onCancel={() => { setEditingBike(null); setIsAdding(false); }}
-              />
-            )}
+                  <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
+                    <button
+                      onClick={() => setEditingBike(bike)}
+                      className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-initial min-h-[44px] flex items-center justify-center"
+                    >
+                      <i className="fas fa-edit mr-1"></i><span className="hidden sm:inline">Изменить</span><span className="sm:hidden">Изм.</span>
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(bike.id)}
+                      className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-initial min-h-[44px] flex items-center justify-center"
+                    >
+                      <i className="fas fa-trash mr-1"></i><span className="hidden sm:inline">Удалить</span><span className="sm:hidden">Уд.</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {bikes.length === 0 && (
+                <div className="text-center py-16 bg-gray-800/30 rounded-2xl border border-gray-700/30">
+                  <i className="fas fa-bicycle text-gray-600 text-4xl mb-4"></i>
+                  <p className="text-gray-400">Нет электровелосипедов</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
+        {(editingBike || isAdding) && (
+          <BikeForm
+            bike={editingBike}
+            onSave={async (bikeData) => {
+              if (editingBike) {
+                await updateBike(editingBike.id, bikeData);
+              } else {
+                await addBike(bikeData as Omit<Bike, 'id'>);
+              }
+              setEditingBike(null);
+              setIsAdding(false);
+            }}
+            onCancel={() => { setEditingBike(null); setIsAdding(false); }}
+          />
+        )}
+
+        {/* Settings Tab */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Настройки сайта</h2>
             <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-4 sm:space-y-5">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">Телефон</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
                   className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="+7 (900) 123-45-67"
-                />
+                  placeholder="+7 (900) 123-45-67" />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">Адрес</label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                <input type="text" value={address} onChange={(e) => setAddress(e.target.value)}
                   className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="г. Краснодар, ул. Снесарева, 3"
-                />
+                  placeholder="г. Краснодар, ул. Снесарева, 3" />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">Режим работы</label>
-                <input
-                  type="text"
-                  value={workHours}
-                  onChange={(e) => setWorkHours(e.target.value)}
+                <input type="text" value={workHours} onChange={(e) => setWorkHours(e.target.value)}
                   className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="Ежедневно с 9:00 до 21:00"
-                />
+                  placeholder="Ежедневно с 9:00 до 21:00" />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">WhatsApp (номер без +)</label>
-                <input
-                  type="text"
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
+                <input type="text" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}
                   className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="79001234567"
-                />
+                  placeholder="79001234567" />
               </div>
 
               <div className="pt-2 sm:pt-4">
-                <button
-                  onClick={handleSaveSettings}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] w-full sm:w-auto"
-                >
+                <button onClick={handleSaveSettings}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] w-full sm:w-auto">
                   <i className="fas fa-save mr-2"></i>Сохранить настройки
                 </button>
                 {settingsSaved && (
@@ -236,6 +222,84 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
                   </span>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Status Tab */}
+        {activeTab === 'status' && (
+          <div className="max-w-2xl">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Статус синхронизации</h2>
+            
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-5 sm:p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <i className={`fas ${isSupabaseConfigured() ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-yellow-400'}`}></i>
+                  База данных
+                </h3>
+                {isSupabaseConfigured() ? (
+                  <div className="space-y-3">
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                      <p className="text-green-400 font-medium text-sm">✓ Supabase подключен</p>
+                      <p className="text-green-400/70 text-xs mt-1">Данные синхронизируются для всех посетителей сайта</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-gray-800/50 rounded-xl p-3 text-center">
+                        <div className="text-2xl font-bold text-white">{bikes.length}</div>
+                        <div className="text-gray-500 text-xs">велосипедов</div>
+                      </div>
+                      <div className="bg-gray-800/50 rounded-xl p-3 text-center">
+                        <div className="text-2xl font-bold text-white">{bikes.filter(b => b.image).length}</div>
+                        <div className="text-gray-500 text-xs">с фото</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                      <p className="text-yellow-400 font-medium text-sm mb-2">⚠ Supabase не настроен</p>
+                      <p className="text-yellow-400/70 text-xs mb-3">Сейчас данные хранятся только в вашем браузере. Чтобы данные были общими для всех посетителей, настройте Supabase:</p>
+                      <ol className="text-yellow-400/70 text-xs space-y-1 list-decimal list-inside">
+                        <li>Зарегистрируйтесь на <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
+                        <li>Создайте новый проект</li>
+                        <li>Скопируйте URL и anon ключ из Settings → API</li>
+                        <li>Вставьте их в файл <code className="bg-gray-800 px-1 rounded">src/config/supabase.ts</code></li>
+                        <li>Выполните SQL из файла <code className="bg-gray-800 px-1 rounded">SETUP.sql</code> в SQL Editor</li>
+                      </ol>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-xl p-4">
+                      <p className="text-gray-400 text-sm">
+                        <i className="fas fa-info-circle mr-2 text-blue-400"></i>
+                        Без Supabase данные сохраняются только локально в браузере.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-5 sm:p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <i className="fas fa-server text-cyan-400"></i>
+                  Хранилище изображений
+                </h3>
+                {isSupabaseConfigured() ? (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                    <p className="text-green-400 font-medium text-sm">✓ Supabase Storage</p>
+                    <p className="text-green-400/70 text-xs mt-1">Изображения хранятся в облаке и доступны всем</p>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                    <p className="text-yellow-400 font-medium text-sm">⚠ Локальное хранилище</p>
+                    <p className="text-yellow-400/70 text-xs mt-1">Изображения хранятся только в вашем браузере</p>
+                  </div>
+                )}
+              </div>
+
+              {refreshStatus && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
+                  <p className="text-green-400 text-sm">{refreshStatus}</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -251,16 +315,12 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
               <h3 className="text-lg font-bold text-white mb-2">Удалить электровелосипед?</h3>
               <p className="text-gray-400 text-sm mb-6">Это действие нельзя отменить</p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(null)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all min-h-[48px]"
-                >
+                <button onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-medium transition-all min-h-[48px]">
                   Отмена
                 </button>
-                <button
-                  onClick={() => handleDeleteBike(showDeleteConfirm)}
-                  className="flex-1 bg-red-500 hover:bg-red-400 text-white py-3 rounded-xl font-medium transition-all min-h-[48px]"
-                >
+                <button onClick={() => handleDeleteBike(showDeleteConfirm)}
+                  className="flex-1 bg-red-500 hover:bg-red-400 text-white py-3 rounded-xl font-medium transition-all min-h-[48px]">
                   Удалить
                 </button>
               </div>
@@ -283,26 +343,10 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
   const [badge, setBadge] = useState(bike?.badge || '');
   const [badgeColor, setBadgeColor] = useState(bike?.badgeColor || 'green');
   const [accentColor, setAccentColor] = useState(bike?.accentColor || 'green');
-  const [imagePreview, setImagePreview] = useState('');
+  const [imagePreview, setImagePreview] = useState(bike?.image || '');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
-
-  // Загружаем изображение из IndexedDB при редактировании
-  useEffect(() => {
-    if (bike?.image) {
-      const loadImage = async () => {
-        if (isLocalImage(bike.image)) {
-          const resolved = await resolveImageUrl(bike.image);
-          if (resolved) {
-            setImagePreview(resolved);
-          }
-        } else {
-          setImagePreview(bike.image);
-        }
-      };
-      loadImage();
-    }
-  }, [bike]);
+  const [uploadProgress, setUploadProgress] = useState('');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -315,35 +359,49 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
 
     setUploadError('');
     setUploading(true);
+    setUploadProgress('Чтение файла...');
 
-    try {
-      // Читаем файл как base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
+    // Показываем превью сразу
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setImagePreview(base64);
+    };
+    reader.readAsDataURL(file);
+
+    // Если Supabase настроен — загружаем в облако
+    if (isSupabaseConfigured()) {
+      setUploadProgress('Загрузка в облако...');
+      try {
+        const bikeId = bike?.id || `new_${Date.now()}`;
+        const imageUrl = await uploadImageToSupabase(file, bikeId);
         
-        // Показываем превью сразу
-        setImagePreview(base64);
-
-        // Сохраняем в IndexedDB
-        try {
-          const imageKey = bike ? `bike_${bike.id}` : `bike_new_${Date.now()}`;
-          const imageUrl = await saveImage(imageKey, base64);
+        if (imageUrl) {
           setImage(imageUrl);
+          setUploadProgress('Готово!');
           setUploadError('');
-        } catch (error) {
-          setUploadError('Ошибка сохранения изображения');
-          // Fallback на base64
-          setImage(base64);
+        } else {
+          setUploadError('Ошибка загрузки в облако');
         }
-        
-        setUploading(false);
+      } catch (error) {
+        setUploadError('Ошибка загрузки: ' + (error as Error).message);
+      }
+    } else {
+      // Fallback: используем base64
+      setUploadProgress('Сохранение локально...');
+      const reader2 = new FileReader();
+      reader2.onloadend = () => {
+        const base64 = reader2.result as string;
+        setImage(base64);
+        setUploadProgress('Готово!');
       };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      setUploadError('Ошибка загрузки изображения');
-      setUploading(false);
+      reader2.readAsDataURL(file);
     }
+
+    setTimeout(() => {
+      setUploading(false);
+      setUploadProgress('');
+    }, 1000);
   };
 
   const handleImageUrl = (url: string) => {
@@ -351,13 +409,21 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
     setImagePreview(url);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleDeleteImage = async () => {
+    if (image && isSupabaseConfigured() && image.includes('supabase')) {
+      await deleteImageFromSupabase(image);
+    }
+    setImage('');
+    setImagePreview('');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !pricePerWeek || !deposit) {
       alert('Заполните обязательные поля');
       return;
     }
-    onSave({
+    await onSave({
       name,
       description,
       pricePerWeek: Number(pricePerWeek),
@@ -389,83 +455,53 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
             </h3>
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">Название *</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                 className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                placeholder="Майкалин U5"
-                required
-              />
+                placeholder="Майкалин U5" required />
             </div>
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">Описание</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
                 className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all resize-none"
-                placeholder="Описание электровелосипеда..."
-              />
+                placeholder="Описание электровелосипеда..." />
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">Цена/неделя (₽) *</label>
-                <input
-                  type="number"
-                  value={pricePerWeek}
-                  onChange={(e) => setPricePerWeek(e.target.value)}
+                <input type="number" value={pricePerWeek} onChange={(e) => setPricePerWeek(e.target.value)}
                   className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="4500"
-                  required
-                />
+                  placeholder="4500" required />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">Залог (₽) *</label>
-                <input
-                  type="number"
-                  value={deposit}
-                  onChange={(e) => setDeposit(e.target.value)}
+                <input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)}
                   className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="1500"
-                  required
-                />
+                  placeholder="1500" required />
               </div>
             </div>
           </div>
 
           <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-3 sm:space-y-4">
             <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-              <i className="fas fa-list text-cyan-400"></i>Характеристики
+              <i className="fas fa-list text-cyan-400"></i>Характеристики и оформление
             </h3>
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">Особенности (каждая с новой строки)</label>
-              <textarea
-                value={features}
-                onChange={(e) => setFeatures(e.target.value)}
-                rows={5}
+              <textarea value={features} onChange={(e) => setFeatures(e.target.value)} rows={5}
                 className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all resize-none"
-                placeholder={"Мощный электродвигатель\nУвеличенный запас хода\nКомфортная посадка"}
-              />
+                placeholder={"Мощный электродвигатель\nУвеличенный запас хода\nКомфортная посадка"} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-2">Бейдж</label>
-                <input
-                  type="text"
-                  value={badge}
-                  onChange={(e) => setBadge(e.target.value)}
+                <label className="block text-gray-300 text-sm font-medium mb-2">Бейдж (метка)</label>
+                <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)}
                   className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="ХИТ"
-                />
+                  placeholder="ХИТ, НОВИНКА, СКИДКА..." />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-2">Цвет бейджа</label>
-                <select
-                  value={badgeColor}
-                  onChange={(e) => setBadgeColor(e.target.value)}
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                >
+                <select value={badgeColor} onChange={(e) => setBadgeColor(e.target.value)}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]">
                   <option value="green">Зелёный</option>
                   <option value="cyan">Голубой</option>
                   <option value="purple">Фиолетовый</option>
@@ -476,11 +512,8 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
             </div>
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">Основной цвет карточки</label>
-              <select
-                value={accentColor}
-                onChange={(e) => setAccentColor(e.target.value)}
-                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-              >
+              <select value={accentColor} onChange={(e) => setAccentColor(e.target.value)}
+                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]">
                 <option value="green">Зелёный</option>
                 <option value="cyan">Голубой</option>
                 <option value="purple">Фиолетовый</option>
@@ -496,6 +529,11 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
           <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-3 sm:space-y-4">
             <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
               <i className="fas fa-cloud-upload-alt text-purple-400"></i>Фотография
+              {isSupabaseConfigured() && (
+                <span className="ml-auto text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
+                  <i className="fas fa-cloud mr-1"></i>Облако
+                </span>
+              )}
             </h3>
             
             <div className="w-full aspect-video rounded-xl overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center relative">
@@ -511,7 +549,7 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                   <div className="text-center">
                     <i className="fas fa-spinner fa-spin text-green-400 text-2xl mb-2"></i>
-                    <p className="text-white text-sm">Загрузка на сервер...</p>
+                    <p className="text-white text-sm">{uploadProgress || 'Загрузка...'}</p>
                   </div>
                 </div>
               )}
@@ -525,46 +563,27 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
 
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">Загрузить файл</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                id="image-upload"
-                disabled={uploading}
-              />
-              <label
-                htmlFor="image-upload"
-                className={`flex items-center justify-center gap-2 w-full bg-gray-800/50 border border-gray-700 border-dashed rounded-xl px-4 py-4 text-gray-400 hover:text-green-400 hover:border-green-500/50 cursor-pointer transition-all min-h-[48px] ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
+              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="image-upload" disabled={uploading} />
+              <label htmlFor="image-upload"
+                className={`flex items-center justify-center gap-2 w-full bg-gray-800/50 border border-gray-700 border-dashed rounded-xl px-4 py-4 text-gray-400 hover:text-green-400 hover:border-green-500/50 cursor-pointer transition-all min-h-[48px] ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-cloud-upload-alt'}`}></i>
-                <span className="text-xs sm:text-sm">{uploading ? 'Загрузка...' : 'Выберите изображение (до 5MB)'}</span>
+                <span className="text-xs sm:text-sm">{uploading ? 'Загрузка...' : 'Выберите изображение (до 10MB)'}</span>
               </label>
             </div>
 
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">Или вставьте URL</label>
-              <input
-                type="url"
-                onChange={(e) => handleImageUrl(e.target.value)}
+              <input type="url" onChange={(e) => handleImageUrl(e.target.value)}
                 className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                placeholder="https://example.com/image.jpg"
-              />
+                placeholder="https://example.com/image.jpg" />
             </div>
 
             {imagePreview && !uploading && (
-              <button
-                type="button"
-                onClick={() => { setImage(''); setImagePreview(''); }}
-                className="text-red-400 hover:text-red-300 text-sm transition-colors min-h-[44px] flex items-center"
-              >
+              <button type="button" onClick={handleDeleteImage}
+                className="text-red-400 hover:text-red-300 text-sm transition-colors min-h-[44px] flex items-center">
                 <i className="fas fa-trash mr-1"></i>Удалить изображение
               </button>
             )}
-
-            <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3 text-green-400 text-xs">
-              <i className="fas fa-check-circle mr-1"></i>Изображения сохраняются локально (IndexedDB)
-            </div>
           </div>
 
           <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
@@ -590,20 +609,13 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
         </div>
 
         <div className="lg:col-span-2 flex flex-col sm:flex-row gap-3 pt-2 sm:pt-4">
-          <button
-            type="submit"
-            disabled={uploading}
-            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-700 text-white px-6 sm:px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] flex items-center justify-center order-2 sm:order-1"
-          >
+          <button type="submit" disabled={uploading}
+            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-700 text-white px-6 sm:px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] flex items-center justify-center order-2 sm:order-1">
             <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-save'} mr-2`}></i>
             {uploading ? 'Загрузка...' : (bike ? 'Сохранить изменения' : 'Добавить')}
           </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={uploading}
-            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-6 py-3.5 rounded-xl font-medium transition-all min-h-[48px] flex items-center justify-center order-1 sm:order-2"
-          >
+          <button type="button" onClick={onCancel} disabled={uploading}
+            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-6 py-3.5 rounded-xl font-medium transition-all min-h-[48px] flex items-center justify-center order-1 sm:order-2">
             Отмена
           </button>
         </div>
