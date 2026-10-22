@@ -1,1 +1,49 @@
 @import "tailwindcss";
+
+/* Мобильная адаптация */
+@media (max-width: 640px) {
+  /* Уменьшаем отступы на мобильных */
+  section {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Улучшаем читаемость текста */
+  p, li {
+    line-height: 1.6;
+  }
+  
+  /* Уменьшаем размеры иконок в заголовках */
+  h1 i, h2 i, h3 i {
+    font-size: 0.9em;
+  }
+  
+  /* Улучшаем адаптивность изображений */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* Улучшаем адаптивность iframe */
+  iframe {
+    max-width: 100%;
+  }
+  
+  /* Уменьшаем размеры кнопок на мобильных */
+  button, .btn {
+    min-height: 44px;
+  }
+  
+  /* Улучшаем адаптивность сеток */
+  .grid {
+    gap: 0.75rem;
+  }
+}
+
+/* Планшетная адаптация */
+@media (min-width: 641px) and (max-width: 1024px) {
+  section {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}

@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Bike, SiteSettings } from '../types';
-import { supabase, isSupabaseConfigured } from '../config/supabase';
-import { fetchBikes, fetchSettings, addBikeToSupabase, updateBikeInSupabase, deleteBikeFromSupabase, updateSettingsInSupabase } from '../services/supabaseService';
+import * as api from '../services/apiService';
 
 interface BikeContextType {
   bikes: Bike[];
@@ -15,33 +14,6 @@ interface BikeContextType {
   refreshData: () => Promise<void>;
 }
 
-const defaultBikes: Bike[] = [
-  {
-    id: '1',
-    name: 'Майкалин U5',
-    description: 'Мощный электровелосипед с увеличенным запасом хода. Идеален для длительных поездок по городу.',
-    pricePerWeek: 4500,
-    deposit: 1500,
-    image: '',
-    features: ['Мощный электродвигатель', 'Увеличенный запас хода', 'Комфортная посадка', 'Светодиодная фара'],
-    badge: 'ХИТ',
-    badgeColor: 'green',
-    accentColor: 'green',
-  },
-  {
-    id: '2',
-    name: 'Kugo U5',
-    description: 'Компактный и манёвренный электровелосипед. Отличный выбор для городских поездок.',
-    pricePerWeek: 4000,
-    deposit: 1500,
-    image: '',
-    features: ['Лёгкий и компактный', 'Быстрая зарядка', 'Складная конструкция', 'Дисковые тормоза'],
-    badge: 'ВЫГОДНО',
-    badgeColor: 'cyan',
-    accentColor: 'cyan',
-  },
-];
-
 const defaultSettings: SiteSettings = {
   phone: '+7 (900) 123-45-67',
   address: 'г. Краснодар, ул. Снесарева, 3',
@@ -51,12 +23,17 @@ const defaultSettings: SiteSettings = {
   instagram: '',
   vk: '',
   youtube: '',
+  customSocials: [],
+  yandexMetrikaId: '',
+  mapLat: 45.035470,
+  mapLng: 38.975310,
+  mapZoom: 16,
 };
 
 const BikeContext = createContext<BikeContextType | undefined>(undefined);
 
 export function BikeProvider({ children }: { children: ReactNode }) {
-  const [bikes, setBikes] = useState<Bike[]>(defaultBikes);
+  const [bikes, setBikes] = useState<Bike[]>([]);
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -67,111 +44,65 @@ export function BikeProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     setIsLoading(true);
-
-    if (isSupabaseConfigured()) {
-      try {
-        const [bikesData, settingsData] = await Promise.all([
-          fetchBikes(),
-          fetchSettings(),
-        ]);
-
-        if (bikesData.length > 0) {
-          setBikes(bikesData);
-        }
-        if (settingsData) {
-          setSettings(settingsData);
-        }
-      } catch (error) {
-        console.error('Error loading from Supabase:', error);
-        loadFromLocalStorage();
-      }
-    } else {
-      loadFromLocalStorage();
+    try {
+      const data = await api.fetchAllData();
+      if (data.bikes) setBikes(data.bikes);
+      if (data.settings) setSettings(data.settings);
+    } catch (error) {
+      console.error('Error loading data:', error);
     }
-
     setIsLoading(false);
   };
 
-  const loadFromLocalStorage = () => {
-    const savedBikes = localStorage.getItem('expertbikes_bikes');
-    const savedSettings = localStorage.getItem('expertbikes_settings');
-
-    if (savedBikes) {
-      try {
-        setBikes(JSON.parse(savedBikes));
-      } catch (e) {
-        console.error('Error parsing bikes:', e);
-      }
-    }
-
-    if (savedSettings) {
-      try {
-        setSettings(JSON.parse(savedSettings));
-      } catch (e) {
-        console.error('Error parsing settings:', e);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('expertbikes_bikes', JSON.stringify(bikes));
-    }
-  }, [bikes, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('expertbikes_settings', JSON.stringify(settings));
-    }
-  }, [settings, isLoading]);
-
   const addBike = async (bike: Omit<Bike, 'id'>) => {
     setIsSyncing(true);
-
-    if (isSupabaseConfigured()) {
-      const id = await addBikeToSupabase(bike);
-      if (id) {
-        const newBike: Bike = { ...bike, id };
-        setBikes(prev => [...prev, newBike]);
+    try {
+      const result = await api.addBike(bike);
+      if (result.success && result.bike) {
+        setBikes(prev => [...prev, result.bike]);
       }
-    } else {
-      const newBike: Bike = { ...bike, id: Date.now().toString() };
-      setBikes(prev => [...prev, newBike]);
+    } catch (error) {
+      console.error('Error adding bike:', error);
     }
-
     setIsSyncing(false);
   };
 
   const updateBike = async (id: string, updates: Partial<Bike>) => {
     setIsSyncing(true);
-
-    if (isSupabaseConfigured()) {
-      await updateBikeInSupabase(id, updates);
+    try {
+      const result = await api.updateBike(id, updates);
+      if (result.success && result.bike) {
+        setBikes(prev => prev.map(bike => bike.id === id ? result.bike : bike));
+      }
+    } catch (error) {
+      console.error('Error updating bike:', error);
     }
-
-    setBikes(prev => prev.map(bike => bike.id === id ? { ...bike, ...updates } : bike));
     setIsSyncing(false);
   };
 
   const deleteBike = async (id: string) => {
     setIsSyncing(true);
-
-    if (isSupabaseConfigured()) {
-      await deleteBikeFromSupabase(id);
+    try {
+      const result = await api.deleteBike(id);
+      if (result.success) {
+        setBikes(prev => prev.filter(bike => bike.id !== id));
+      }
+    } catch (error) {
+      console.error('Error deleting bike:', error);
     }
-
-    setBikes(prev => prev.filter(bike => bike.id !== id));
     setIsSyncing(false);
   };
 
   const updateSettings = async (newSettings: Partial<SiteSettings>) => {
     setIsSyncing(true);
-
-    if (isSupabaseConfigured()) {
-      await updateSettingsInSupabase(newSettings);
+    try {
+      const result = await api.updateSettings(newSettings);
+      if (result.success && result.settings) {
+        setSettings(result.settings);
+      }
+    } catch (error) {
+      console.error('Error updating settings:', error);
     }
-
-    setSettings(prev => ({ ...prev, ...newSettings }));
     setIsSyncing(false);
   };
 

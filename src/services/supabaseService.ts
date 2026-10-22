@@ -51,6 +51,11 @@ export async function fetchSettings(): Promise<SiteSettings | null> {
     instagram: data.instagram || '',
     vk: data.vk || '',
     youtube: data.youtube || '',
+    customSocials: data.custom_socials || [],
+    yandexMetrikaId: data.yandex_metrika_id || '',
+    mapLat: data.map_lat || 45.035470,
+    mapLng: data.map_lng || 38.975310,
+    mapZoom: data.map_zoom || 16,
   };
 }
 

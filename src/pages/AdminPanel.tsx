@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useBikes } from '../context/BikeContext';
 import { Bike } from '../types';
+import { uploadImage, deleteImage, getImageUrl } from '../services/apiService';
 
 export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
   const { bikes, settings, addBike, updateBike, deleteBike, updateSettings, isSyncing, refreshData } = useBikes();
-  const [activeTab, setActiveTab] = useState<'bikes' | 'settings' | 'social' | 'status'>('bikes');
+  const [activeTab, setActiveTab] = useState<'bikes' | 'settings' | 'social' | 'metrika' | 'map' | 'status'>('bikes');
   const [editingBike, setEditingBike] = useState<Bike | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
@@ -17,6 +18,11 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
   const [instagram, setInstagram] = useState(settings.instagram);
   const [vk, setVk] = useState(settings.vk);
   const [youtube, setYoutube] = useState(settings.youtube);
+  const [customSocials, setCustomSocials] = useState(settings.customSocials || []);
+  const [yandexMetrikaId, setYandexMetrikaId] = useState(settings.yandexMetrikaId || '');
+  const [mapLat, setMapLat] = useState(settings.mapLat || 45.035470);
+  const [mapLng, setMapLng] = useState(settings.mapLng || 38.975310);
+  const [mapZoom, setMapZoom] = useState(settings.mapZoom || 16);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState('');
 
@@ -27,9 +33,39 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleSaveSocial = async () => {
-    await updateSettings({ telegram, instagram, vk, youtube });
+    await updateSettings({ telegram, instagram, vk, youtube, customSocials });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const handleSaveMetrika = async () => {
+    await updateSettings({ yandexMetrikaId });
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const handleSaveMap = async () => {
+    await updateSettings({ mapLat, mapLng, mapZoom });
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const addCustomSocial = () => {
+    setCustomSocials([...customSocials, {
+      id: Date.now().toString(),
+      name: '',
+      url: '',
+      icon: 'fas fa-link',
+      color: 'gray'
+    }]);
+  };
+
+  const updateCustomSocial = (id: string, updates: Partial<any>) => {
+    setCustomSocials(customSocials.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const removeCustomSocial = (id: string) => {
+    setCustomSocials(customSocials.filter(s => s.id !== id));
   };
 
   const handleDeleteBike = async (id: string) => {
@@ -104,6 +140,18 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
             className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'social' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
           >
             <i className="fas fa-share-alt mr-2"></i>Соцсети
+          </button>
+          <button
+            onClick={() => { setActiveTab('metrika'); setEditingBike(null); setIsAdding(false); }}
+            className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'metrika' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            <i className="fas fa-chart-line mr-2"></i>Метрика
+          </button>
+          <button
+            onClick={() => { setActiveTab('map'); setEditingBike(null); setIsAdding(false); }}
+            className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'map' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            <i className="fas fa-map mr-2"></i>Карта
           </button>
           <button
             onClick={() => { setActiveTab('status'); setEditingBike(null); setIsAdding(false); }}
@@ -285,10 +333,249 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
                 <p className="text-gray-500 text-xs mt-1">Ссылка на ваш YouTube канал</p>
               </div>
 
+              {/* Кастомные соцсети */}
+              <div className="pt-4 border-t border-gray-700/30">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i className="fas fa-plus-circle text-green-400"></i>
+                    Дополнительные соцсети
+                  </h3>
+                  <button
+                    onClick={addCustomSocial}
+                    className="bg-green-500/10 hover:bg-green-500/20 text-green-400 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    <i className="fas fa-plus mr-1"></i>Добавить
+                  </button>
+                </div>
+
+                {customSocials.length === 0 && (
+                  <p className="text-gray-500 text-sm text-center py-4">
+                    Нет дополнительных соцсетей. Добавьте Max, Одноклассники, TikTok и другие.
+                  </p>
+                )}
+
+                <div className="space-y-3">
+                  {customSocials.map((social) => (
+                    <div key={social.id} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="block text-gray-300 text-xs font-medium mb-1">Название</label>
+                          <input
+                            type="text"
+                            value={social.name}
+                            onChange={(e) => updateCustomSocial(social.id, { name: e.target.value })}
+                            className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-green-500 transition-all"
+                            placeholder="Max, Одноклассники..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-300 text-xs font-medium mb-1">Иконка</label>
+                          <select
+                            value={social.icon}
+                            onChange={(e) => updateCustomSocial(social.id, { icon: e.target.value })}
+                            className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500 transition-all"
+                          >
+                            <option value="fas fa-link">🔗 Ссылка</option>
+                            <option value="fas fa-comment">💬 Чат</option>
+                            <option value="fas fa-paper-plane">✈️ Мессенджер</option>
+                            <option value="fas fa-music">🎵 Музыка</option>
+                            <option value="fas fa-video">📹 Видео</option>
+                            <option value="fas fa-gamepad">🎮 Игры</option>
+                            <option value="fas fa-shopping-bag">🛍️ Магазин</option>
+                            <option value="fas fa-envelope">📧 Почта</option>
+                            <option value="fas fa-globe">🌐 Сайт</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-gray-300 text-xs font-medium mb-1">URL</label>
+                          <input
+                            type="url"
+                            value={social.url}
+                            onChange={(e) => updateCustomSocial(social.id, { url: e.target.value })}
+                            className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-green-500 transition-all"
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-300 text-xs font-medium mb-1">Цвет</label>
+                          <select
+                            value={social.color}
+                            onChange={(e) => updateCustomSocial(social.id, { color: e.target.value })}
+                            className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500 transition-all"
+                          >
+                            <option value="green">🟢 Зелёный</option>
+                            <option value="blue">🔵 Синий</option>
+                            <option value="purple">🟣 Фиолетовый</option>
+                            <option value="red">🔴 Красный</option>
+                            <option value="yellow">🟡 Жёлтый</option>
+                            <option value="pink">🩷 Розовый</option>
+                            <option value="orange">🟠 Оранжевый</option>
+                            <option value="gray">⚪ Серый</option>
+                          </select>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeCustomSocial(social.id)}
+                        className="mt-3 text-red-400 hover:text-red-300 text-xs transition-colors"
+                      >
+                        <i className="fas fa-trash mr-1"></i>Удалить
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="pt-2 sm:pt-4">
                 <button onClick={handleSaveSocial}
                   className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] w-full sm:w-auto">
                   <i className="fas fa-save mr-2"></i>Сохранить соцсети
+                </button>
+                {settingsSaved && (
+                  <span className="ml-0 sm:ml-3 mt-2 sm:mt-0 block sm:inline text-green-400 text-sm">
+                    <i className="fas fa-check-circle mr-1"></i>Сохранено!
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Метрика Tab */}
+        {activeTab === 'metrika' && (
+          <div className="max-w-2xl">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Яндекс.Метрика</h2>
+            <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-4 sm:space-y-5">
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  <i className="fas fa-chart-line text-yellow-400 mr-2"></i>ID счётчика Яндекс.Метрики
+                </label>
+                <input
+                  type="text"
+                  value={yandexMetrikaId}
+                  onChange={(e) => setYandexMetrikaId(e.target.value)}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                  placeholder="12345678"
+                />
+                <p className="text-gray-500 text-xs mt-2">
+                  Введите ID счётчика Яндекс.Метрики. Получить можно в <a href="https://metrika.yandex.ru/" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:underline">Яндекс.Метрике</a>
+                </p>
+              </div>
+
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                <h4 className="text-yellow-400 font-medium text-sm mb-2 flex items-center gap-2">
+                  <i className="fas fa-info-circle"></i>
+                  Как получить ID счётчика:
+                </h4>
+                <ol className="text-yellow-400/70 text-xs space-y-1 list-decimal list-inside">
+                  <li>Зарегистрируйтесь в <a href="https://metrika.yandex.ru/" target="_blank" rel="noopener noreferrer" className="underline">Яндекс.Метрике</a></li>
+                  <li>Создайте новый счётчик для вашего сайта</li>
+                  <li>Скопируйте номер счётчика (ID)</li>
+                  <li>Вставьте его в поле выше</li>
+                  <li>Нажмите "Сохранить"</li>
+                </ol>
+              </div>
+
+              <div className="pt-2 sm:pt-4">
+                <button onClick={handleSaveMetrika}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] w-full sm:w-auto">
+                  <i className="fas fa-save mr-2"></i>Сохранить настройки метрики
+                </button>
+                {settingsSaved && (
+                  <span className="ml-0 sm:ml-3 mt-2 sm:mt-0 block sm:inline text-green-400 text-sm">
+                    <i className="fas fa-check-circle mr-1"></i>Сохранено!
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Карта Tab */}
+        {activeTab === 'map' && (
+          <div className="max-w-2xl">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Настройки карты</h2>
+            <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-4 sm:space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">
+                    <i className="fas fa-map-marker-alt text-red-400 mr-2"></i>Широта (Latitude)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={mapLat}
+                    onChange={(e) => setMapLat(parseFloat(e.target.value))}
+                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                    placeholder="45.035470"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">
+                    <i className="fas fa-map-marker-alt text-red-400 mr-2"></i>Долгота (Longitude)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={mapLng}
+                    onChange={(e) => setMapLng(parseFloat(e.target.value))}
+                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                    placeholder="38.975310"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  <i className="fas fa-search-plus text-blue-400 mr-2"></i>Масштаб карты (Zoom)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={mapZoom}
+                  onChange={(e) => setMapZoom(parseInt(e.target.value))}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                  placeholder="16"
+                />
+                <p className="text-gray-500 text-xs mt-1">От 1 (весь мир) до 20 (здание)</p>
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                <h4 className="text-blue-400 font-medium text-sm mb-2 flex items-center gap-2">
+                  <i className="fas fa-info-circle"></i>
+                  Как узнать координаты:
+                </h4>
+                <ol className="text-blue-400/70 text-xs space-y-1 list-decimal list-inside">
+                  <li>Откройте <a href="https://maps.yandex.ru/" target="_blank" rel="noopener noreferrer" className="underline">Яндекс.Карты</a></li>
+                  <li>Найдите ваше местоположение</li>
+                  <li>Кликните правой кнопкой мыши на точку</li>
+                  <li>Выберите "Что здесь?"</li>
+                  <li>Скопируйте координаты (широта, долгота)</li>
+                </ol>
+              </div>
+
+              {/* Превью карты */}
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">Превью карты</label>
+                <div className="rounded-xl overflow-hidden border border-gray-700/30 h-64">
+                  <iframe
+                    src={`https://yandex.ru/map-widget/v1/?ll=${mapLng}%2C${mapLat}&z=${mapZoom}&pt=${mapLng},${mapLat},pm2rdm`}
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    title="Превью карты"
+                  ></iframe>
+                </div>
+              </div>
+
+              <div className="pt-2 sm:pt-4">
+                <button onClick={handleSaveMap}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] w-full sm:w-auto">
+                  <i className="fas fa-save mr-2"></i>Сохранить настройки карты
                 </button>
                 {settingsSaved && (
                   <span className="ml-0 sm:ml-3 mt-2 sm:mt-0 block sm:inline text-green-400 text-sm">
@@ -376,10 +663,49 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
   const [pricePerWeek, setPricePerWeek] = useState(bike?.pricePerWeek?.toString() || '');
   const [deposit, setDeposit] = useState(bike?.deposit?.toString() || '');
   const [image, setImage] = useState(bike?.image || '');
+  const [imagePreview, setImagePreview] = useState(bike?.image ? getImageUrl(bike.image) : '');
   const [features, setFeatures] = useState(bike?.features?.join('\n') || '');
   const [badge, setBadge] = useState(bike?.badge || '');
   const [badgeColor, setBadgeColor] = useState(bike?.badgeColor || 'green');
   const [accentColor, setAccentColor] = useState(bike?.accentColor || 'green');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Файл слишком большой. Максимум 10MB');
+      return;
+    }
+
+    setUploadError('');
+    setUploading(true);
+
+    try {
+      // Показываем превью сразу
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Загружаем на сервер
+      const result = await uploadImage(file);
+      
+      if (result.success && result.url) {
+        setImage(result.url);
+        setUploadError('');
+      } else {
+        setUploadError('Ошибка загрузки на сервер');
+      }
+    } catch (error) {
+      setUploadError('Ошибка загрузки: ' + (error as Error).message);
+    }
+
+    setUploading(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -483,13 +809,77 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
           </div>
         </div>
 
+        <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-3 sm:space-y-4">
+          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <i className="fas fa-image text-purple-400"></i>Фотография
+          </h3>
+          
+          <div className="w-full aspect-video rounded-xl overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center relative">
+            {imagePreview ? (
+              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+            ) : (
+              <div className="text-center">
+                <i className="fas fa-image text-gray-600 text-3xl sm:text-4xl mb-2"></i>
+                <p className="text-gray-500 text-xs sm:text-sm">Нет изображения</p>
+              </div>
+            )}
+            {uploading && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <div className="text-center">
+                  <i className="fas fa-spinner fa-spin text-green-400 text-2xl mb-2"></i>
+                  <p className="text-white text-sm">Загрузка...</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {uploadError && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-xs sm:text-sm">
+              <i className="fas fa-exclamation-circle mr-1"></i>{uploadError}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">Загрузить файл</label>
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageUpload} 
+              className="hidden" 
+              id="image-upload" 
+              disabled={uploading}
+            />
+            <label 
+              htmlFor="image-upload"
+              className={`flex items-center justify-center gap-2 w-full bg-gray-800/50 border border-gray-700 border-dashed rounded-xl px-4 py-4 text-gray-400 hover:text-green-400 hover:border-green-500/50 cursor-pointer transition-all min-h-[48px] ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-cloud-upload-alt'}`}></i>
+              <span className="text-xs sm:text-sm">{uploading ? 'Загрузка...' : 'Выберите изображение (до 10MB)'}</span>
+            </label>
+          </div>
+
+          {imagePreview && !uploading && (
+            <button 
+              type="button" 
+              onClick={() => { setImage(''); setImagePreview(''); }}
+              className="text-red-400 hover:text-red-300 text-sm transition-colors min-h-[44px] flex items-center"
+            >
+              <i className="fas fa-trash mr-1"></i>Удалить изображение
+            </button>
+          )}
+
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3 text-green-400 text-xs">
+            <i className="fas fa-server mr-1"></i>Изображения сохраняются на вашем сервере
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-3 pt-2 sm:pt-4">
-          <button type="submit"
-            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 sm:px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] flex items-center justify-center order-2 sm:order-1">
-            <i className="fas fa-save mr-2"></i>{bike ? 'Сохранить изменения' : 'Добавить'}
+          <button type="submit" disabled={uploading}
+            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-700 text-white px-6 sm:px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] flex items-center justify-center order-2 sm:order-1">
+            <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-save'} mr-2`}></i>{uploading ? 'Загрузка...' : (bike ? 'Сохранить изменения' : 'Добавить')}
           </button>
-          <button type="button" onClick={onCancel}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3.5 rounded-xl font-medium transition-all min-h-[48px] flex items-center justify-center order-1 sm:order-2">
+          <button type="button" onClick={onCancel} disabled={uploading}
+            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-6 py-3.5 rounded-xl font-medium transition-all min-h-[48px] flex items-center justify-center order-1 sm:order-2">
             Отмена
           </button>
         </div>
