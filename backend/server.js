@@ -105,21 +105,39 @@ app.get('/api/settings', (req, res) => {
 });
 
 // Загрузить изображение
-app.post('/api/upload', upload.single('image'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Файл не загружен' });
+app.post('/api/upload', (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err);
+      
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Файл слишком большой. Максимум 10MB' });
+      }
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ error: 'Неверный формат файла' });
+      }
+      return res.status(400).json({ error: err.message || 'Ошибка загрузки файла' });
     }
     
-    const imageUrl = `/uploads/${req.file.filename}`;
-    res.json({ 
-      success: true, 
-      url: imageUrl,
-      filename: req.file.filename
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Ошибка загрузки файла' });
-  }
+    try {
+      if (!req.file) {
+        console.error('No file in request');
+        return res.status(400).json({ error: 'Файл не получен. Проверьте поле name="image"' });
+      }
+      
+      console.log('File uploaded:', req.file.filename, req.file.size, 'bytes');
+      
+      const imageUrl = `/uploads/${req.file.filename}`;
+      res.json({ 
+        success: true, 
+        url: imageUrl,
+        filename: req.file.filename
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Ошибка сохранения файла: ' + error.message });
+    }
+  });
 });
 
 // Добавить велосипед

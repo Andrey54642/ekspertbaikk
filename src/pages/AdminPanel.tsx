@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useBikes } from '../context/BikeContext';
 import { Bike } from '../types';
 import { uploadImage, deleteImage, getImageUrl } from '../services/apiService';
@@ -677,13 +677,20 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
   const [pricePerWeek, setPricePerWeek] = useState(bike?.pricePerWeek?.toString() || '');
   const [deposit, setDeposit] = useState(bike?.deposit?.toString() || '');
   const [image, setImage] = useState(bike?.image || '');
-  const [imagePreview, setImagePreview] = useState(bike?.image ? getImageUrl(bike.image) : '');
+  const [imagePreview, setImagePreview] = useState('');
   const [features, setFeatures] = useState(bike?.features?.join('\n') || '');
   const [badge, setBadge] = useState(bike?.badge || '');
   const [badgeColor, setBadgeColor] = useState(bike?.badgeColor || 'green');
   const [accentColor, setAccentColor] = useState(bike?.accentColor || 'green');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+
+  // Загружаем превью изображения при редактировании
+  useEffect(() => {
+    if (bike?.image) {
+      setImagePreview(getImageUrl(bike.image));
+    }
+  }, [bike]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

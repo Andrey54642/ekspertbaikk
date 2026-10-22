@@ -1,7 +1,9 @@
 // API URL - измените на адрес вашего сервера
-const API_URL = import.meta.env.PROD 
-  ? '' // На продакшене используется тот же домен
-  : 'http://localhost:3001'; // Для разработки
+// В разработке используем localhost:3001
+// В продакшене используем тот же домен (nginx проксирует /api на backend)
+const API_URL = import.meta.env.DEV 
+  ? 'http://localhost:3001'
+  : '';
 
 // ========== API запросы ==========
 
@@ -27,13 +29,25 @@ export async function uploadImage(file: File): Promise<{ success: boolean; url: 
   const formData = new FormData();
   formData.append('image', file);
   
-  const response = await fetch(`${API_URL}/api/upload`, {
-    method: 'POST',
-    body: formData,
-  });
-  
-  if (!response.ok) throw new Error('Ошибка загрузки изображения');
-  return response.json();
+  try {
+    const response = await fetch(`${API_URL}/api/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+      throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Не удалось подключиться к серверу. Убедитесь, что backend запущен на порту 3001');
+    }
+    throw error;
+  }
 }
 
 export async function deleteImage(filename: string): Promise<{ success: boolean }> {
