@@ -590,31 +590,45 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
         {/* Status Tab */}
         {activeTab === 'status' && (
           <div className="max-w-2xl">
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Статус синхронизации</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Статус системы</h2>
             
             <div className="space-y-4">
               <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-5 sm:p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <i className={`fas ${false ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-yellow-400'}`}></i>
-                  База данных
+                  <i className="fas fa-server text-green-400"></i>
+                  Backend сервер
                 </h3>
                 <div className="space-y-3">
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-                    <p className="text-yellow-400 font-medium text-sm mb-2">⚠ Supabase не настроен</p>
-                    <p className="text-yellow-400/70 text-xs mb-3">Сейчас данные хранятся только в вашем браузере. Чтобы данные были общими для всех посетителей, настройте Supabase:</p>
-                    <ol className="text-yellow-400/70 text-xs space-y-1 list-decimal list-inside">
-                      <li>Зарегистрируйтесь на <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
-                      <li>Создайте новый проект</li>
-                      <li>Скопируйте URL и anon ключ из Settings → API</li>
-                      <li>Вставьте их в файл <code className="bg-gray-800 px-1 rounded">src/config/supabase.ts</code></li>
-                      <li>Выполните SQL из файла <code className="bg-gray-800 px-1 rounded">SETUP.sql</code> в SQL Editor</li>
-                    </ol>
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                    <p className="text-green-400 font-medium text-sm mb-2">✓ Backend API активен</p>
+                    <p className="text-green-400/70 text-xs">Все данные хранятся на вашем сервере</p>
                   </div>
                   <div className="bg-gray-800/50 rounded-xl p-4">
                     <p className="text-gray-400 text-sm">
                       <i className="fas fa-info-circle mr-2 text-blue-400"></i>
-                      Без Supabase данные сохраняются только локально в браузере.
+                      Данные сохраняются в <code className="bg-gray-700 px-1 rounded">backend/data.json</code>
                     </p>
+                    <p className="text-gray-400 text-sm mt-2">
+                      <i className="fas fa-images mr-2 text-blue-400"></i>
+                      Изображения сохраняются в <code className="bg-gray-700 px-1 rounded">backend/uploads/</code>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-5 sm:p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <i className="fas fa-database text-cyan-400"></i>
+                  Статистика
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-800/50 rounded-xl p-3 text-center">
+                    <div className="text-2xl font-bold text-white">{bikes.length}</div>
+                    <div className="text-gray-500 text-xs">велосипедов</div>
+                  </div>
+                  <div className="bg-gray-800/50 rounded-xl p-3 text-center">
+                    <div className="text-2xl font-bold text-white">{bikes.filter(b => b.image).length}</div>
+                    <div className="text-gray-500 text-xs">с фото</div>
                   </div>
                 </div>
               </div>

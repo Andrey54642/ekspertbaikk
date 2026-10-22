@@ -27,7 +27,7 @@
 ### Функции админ-панели:
 
 1. **Велосипеды** — добавление, редактирование и удаление электровелосипедов
-   - Загрузка фото (в облако или локально)
+   - Загрузка фото на сервер
    - Настройка цен, описания, характеристик
    - Выбор цветовой схемы карточки
    - Бейджи (ХИТ, ВЫГОДНО и т.д.)
@@ -43,71 +43,136 @@
    - Instagram
    - ВКонтакте
    - YouTube
+   - Дополнительные соцсети (Max, Одноклассники и др.)
 
-4. **Статус** — информация о синхронизации
-   - Статус подключения к Supabase
-   - Инструкция по настройке
+4. **Метрика** — настройка Яндекс.Метрики
+   - ID счётчика для отслеживания посещений
 
-## ☁️ Настройка облачной синхронизации (Supabase)
+5. **Карта** — настройка карты
+   - Координаты (широта, долгота)
+   - Масштаб карты
 
-**Без настройки Supabase** данные хранятся только в вашем браузере. Чтобы данные (велосипеды, фото, настройки) были **общими для всех посетителей сайта**, нужно настроить Supabase.
+6. **Статус** — информация о системе
 
-### Шаг 1: Регистрация в Supabase
+## 🖥️ Backend (серверная часть)
 
-1. Перейдите на [supabase.com](https://supabase.com)
-2. Нажмите "Start your project"
-3. Войдите через GitHub (или зарегистрируйтесь)
-4. Нажмите "New Project"
-5. Заполните:
-   - **Name**: `expert-bike` (или любое другое)
-   - **Database Password**: придумайте пароль (сохраните его!)
-   - **Region**: выберите ближайший (Frankfurt для России)
-6. Нажмите "Create new project" и подождите 1-2 минуты
+Все данные хранятся на вашем сервере через Node.js backend.
 
-### Шаг 2: Получение ключей
+### Установка backend:
 
-1. В левом меню нажмите **Settings** (шестерёнка)
-2. Перейдите в раздел **API**
-3. Скопируйте:
-   - **Project URL** (например: `https://abcdefg.supabase.co`)
-   - **anon public** ключ (длинная строка)
-
-### Шаг 3: Вставка ключей в код
-
-Откройте файл `src/config/supabase.ts` и вставьте ваши значения:
-
-```typescript
-const SUPABASE_URL = 'https://abcdefg.supabase.co'; // Ваш Project URL
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Ваш anon ключ
+```bash
+cd backend
+npm install
 ```
 
-### Шаг 4: Создание таблиц в базе данных
+### Запуск backend:
 
-1. В левом меню Supabase нажмите **SQL Editor** (иконка базы данных с кодом)
-2. Нажмите "New query"
-3. Скопируйте весь SQL из файла `SETUP.sql` (в корне проекта)
-4. Вставьте в SQL Editor
-5. Нажмите **Run** (или Ctrl+Enter)
+```bash
+# Для разработки
+npm run dev
 
-Вы должны увидеть сообщения об успешном создании таблиц.
+# Для продакшена
+npm start
+```
 
-### Шаг 5: Пересборка проекта
+Backend работает на порту 3001 по умолчанию.
+
+### Структура backend:
+
+```
+backend/
+├── server.js          # Express сервер с API
+├── package.json       # Зависимости
+├── data.json          # Данные (создаётся автоматически)
+└── uploads/           # Загруженные изображения
+```
+
+### API Endpoints:
+
+- `GET /api/data` — получить все данные
+- `GET /api/bikes` — получить велосипеды
+- `GET /api/settings` — получить настройки
+- `POST /api/upload` — загрузить изображение
+- `POST /api/bikes` — добавить велосипед
+- `PUT /api/bikes/:id` — обновить велосипед
+- `DELETE /api/bikes/:id` — удалить велосипед
+- `PUT /api/settings` — обновить настройки
+- `DELETE /api/upload/:filename` — удалить изображение
+
+## 🚀 Развёртывание
+
+### Шаг 1: Установка зависимостей
+
+```bash
+# Frontend
+npm install
+
+# Backend
+cd backend
+npm install
+cd ..
+```
+
+### Шаг 2: Сборка frontend
 
 ```bash
 npm run build
 ```
 
-### Шаг 6: Загрузка на сервер
+### Шаг 3: Запуск backend
 
-Загрузите содержимое папки `dist/` на ваш хостинг.
+```bash
+cd backend
+npm start
+```
+
+### Шаг 4: Настройка Nginx (опционально)
+
+Пример конфигурации Nginx для проксирования:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.ru;
+
+    # Frontend
+    location / {
+        proxy_pass http://localhost:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Backend API
+    location /api {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Uploads
+    location /uploads {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+}
+```
 
 ## ✅ Проверка работы
 
-1. Откройте сайт
-2. Перейдите в админ-панель (`#/admin`, пароль: `admin`)
-3. Добавьте велосипед с фото
-4. Откройте сайт в другом браузере или на другом устройстве
-5. Данные должны быть видны везде!
+1. Запустите backend: `cd backend && npm start`
+2. Запустите frontend: `npm run dev`
+3. Откройте сайт в браузере
+4. Перейдите в админ-панель (`#/admin`, пароль: `admin`)
+5. Добавьте велосипед с фото
+6. Данные сохраняются в `backend/data.json`
+7. Изображения сохраняются в `backend/uploads/`
 
 ## 🔍 SEO-оптимизация
 
@@ -146,21 +211,23 @@ npm run build
 
 ```
 ├── index.html                    # Главная HTML с SEO-оптимизацией
-├── SETUP.sql                     # SQL для настройки Supabase
 ├── public/
 │   ├── sitemap.xml              # Карта сайта
 │   └── robots.txt               # Инструкции для роботов
+├── backend/
+│   ├── server.js                # Express сервер
+│   ├── package.json             # Зависимости backend
+│   ├── data.json                # Данные (создаётся автоматически)
+│   └── uploads/                 # Загруженные изображения
 ├── src/
 │   ├── main.tsx                  # Точка входа
 │   ├── App.tsx                   # Роутинг
 │   ├── index.css                 # Стили
 │   ├── types.ts                  # TypeScript типы
-│   ├── config/
-│   │   └── supabase.ts           # Конфигурация Supabase
 │   ├── context/
 │   │   └── BikeContext.tsx       # Управление данными
 │   ├── services/
-│   │   └── supabaseService.ts    # Работа с Supabase
+│   │   └── apiService.ts         # Работа с backend API
 │   └── pages/
 │       ├── HomePage.tsx          # Главная страница с SEO-контентом
 │       ├── AdminLogin.tsx        # Вход в админ-панель
@@ -169,30 +236,65 @@ npm run build
 
 ## 🛠️ Технологии
 
+### Frontend:
 - React 18 + TypeScript
 - Vite
 - Tailwind CSS v4
-- Supabase (база данных + хранилище файлов)
 - Schema.org (структурированные данные)
 - Font Awesome (иконки)
+
+### Backend:
+- Node.js
+- Express.js
+- Multer (загрузка файлов)
+- CORS
+- fs-extra (работа с файлами)
+
+## 💾 Хранение данных
+
+- **Данные** (велосипеды, настройки): `backend/data.json`
+- **Изображения**: `backend/uploads/`
+
+Все данные хранятся на вашем сервере!
 
 ## 🚀 Запуск
 
 ```bash
-npm install        # Установка зависимостей
-npm run dev        # Запуск для разработки
-npm run build      # Сборка для продакшена
+# Установка зависимостей
+npm install
+cd backend && npm install && cd ..
+
+# Запуск backend
+cd backend && npm start
+
+# Запуск frontend (в другом терминале)
+npm run dev
+
+# Сборка для продакшена
+npm run build
 ```
 
 ## 💡 Примечания
 
-- **Без Supabase**: данные хранятся в localStorage браузера (только у вас)
-- **С Supabase**: данные хранятся в облаке (общие для всех посетителей)
-- **Изображения**: при настройке Supabase загружаются в Supabase Storage (1 ГБ бесплатно)
-- **Безопасность**: в продакшене рекомендуется настроить аутентификацию Supabase для защиты админ-панели
+- **Все данные хранятся на вашем сервере** — никаких внешних сервисов
+- **Изображения** загружаются в `backend/uploads/`
+- **Безопасность**: измените пароль в `AdminLogin.tsx` для продакшена
 - **SEO**: сайт полностью оптимизирован для поисковых систем Google и Яндекс
+- **Резервное копирование**: регулярно делайте бэкап `backend/data.json` и папки `backend/uploads/`
 
 ## 📝 Обновления
+
+### Версия 2.0.0 (Backend API)
+- ✅ Полностью убран Supabase
+- ✅ Создан Node.js backend для хранения данных
+- ✅ Все данные хранятся на вашем сервере
+- ✅ Загрузка изображений на сервер
+- ✅ API endpoints для управления данными
+
+### Версия 1.3.0 (Расширенная админ-панель)
+- ✅ Добавлены кастомные соцсети (Max, Одноклассники и др.)
+- ✅ Настройка Яндекс.Метрики
+- ✅ Настройка карты (координаты, масштаб)
 
 ### Версия 1.2.0 (SEO-оптимизация)
 - ✅ Полная SEO-оптимизация сайта
@@ -206,12 +308,10 @@ npm run build      # Сборка для продакшена
 ### Версия 1.1.0
 - ✅ Добавлена настройка социальных сетей (Telegram, Instagram, ВКонтакте, YouTube)
 - ✅ Соцсети отображаются в футере главной страницы
-- ✅ Обновлена база данных Supabase
 
 ### Версия 1.0.0
 - ✅ Каталог электровелосипедов
 - ✅ Админ-панель
-- ✅ Облачная синхронизация
 - ✅ Карта с адресом
 - ✅ Адаптивный дизайн
 
