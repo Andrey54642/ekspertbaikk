@@ -1,13 +1,8 @@
-import { supabase, isSupabaseConfigured } from '../config/supabase';
+import { supabase } from '../config/supabase';
 import { Bike, SiteSettings } from '../types';
 
-// ============================================
-// Сервис для работы с Supabase
-// ============================================
-
-// Получить все велосипеды
 export async function fetchBikes(): Promise<Bike[]> {
-  if (!isSupabaseConfigured() || !supabase) return [];
+  if (!supabase) return [];
   
   const { data, error } = await supabase
     .from('bikes')
@@ -33,9 +28,8 @@ export async function fetchBikes(): Promise<Bike[]> {
   }));
 }
 
-// Получить настройки
 export async function fetchSettings(): Promise<SiteSettings | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
+  if (!supabase) return null;
   
   const { data, error } = await supabase
     .from('settings')
@@ -53,12 +47,15 @@ export async function fetchSettings(): Promise<SiteSettings | null> {
     address: data.address,
     workHours: data.work_hours,
     whatsapp: data.whatsapp,
+    telegram: data.telegram || '',
+    instagram: data.instagram || '',
+    vk: data.vk || '',
+    youtube: data.youtube || '',
   };
 }
 
-// Добавить велосипед
 export async function addBikeToSupabase(bike: Omit<Bike, 'id'>): Promise<string | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
+  if (!supabase) return null;
   
   const id = Date.now().toString();
   const { error } = await supabase.from('bikes').insert({
@@ -82,9 +79,8 @@ export async function addBikeToSupabase(bike: Omit<Bike, 'id'>): Promise<string 
   return id;
 }
 
-// Обновить велосипед
 export async function updateBikeInSupabase(id: string, updates: Partial<Bike>): Promise<boolean> {
-  if (!isSupabaseConfigured() || !supabase) return false;
+  if (!supabase) return false;
   
   const dbUpdates: any = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
@@ -110,9 +106,8 @@ export async function updateBikeInSupabase(id: string, updates: Partial<Bike>): 
   return true;
 }
 
-// Удалить велосипед
 export async function deleteBikeFromSupabase(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured() || !supabase) return false;
+  if (!supabase) return false;
   
   const { error } = await supabase
     .from('bikes')
@@ -127,15 +122,18 @@ export async function deleteBikeFromSupabase(id: string): Promise<boolean> {
   return true;
 }
 
-// Обновить настройки
 export async function updateSettingsInSupabase(settings: Partial<SiteSettings>): Promise<boolean> {
-  if (!isSupabaseConfigured() || !supabase) return false;
+  if (!supabase) return false;
   
   const dbUpdates: any = {};
   if (settings.phone !== undefined) dbUpdates.phone = settings.phone;
   if (settings.address !== undefined) dbUpdates.address = settings.address;
   if (settings.workHours !== undefined) dbUpdates.work_hours = settings.workHours;
   if (settings.whatsapp !== undefined) dbUpdates.whatsapp = settings.whatsapp;
+  if (settings.telegram !== undefined) dbUpdates.telegram = settings.telegram;
+  if (settings.instagram !== undefined) dbUpdates.instagram = settings.instagram;
+  if (settings.vk !== undefined) dbUpdates.vk = settings.vk;
+  if (settings.youtube !== undefined) dbUpdates.youtube = settings.youtube;
   
   const { error } = await supabase
     .from('settings')
@@ -150,9 +148,8 @@ export async function updateSettingsInSupabase(settings: Partial<SiteSettings>):
   return true;
 }
 
-// Загрузить изображение в Supabase Storage
 export async function uploadImageToSupabase(file: File, bikeId: string): Promise<string | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
+  if (!supabase) return null;
   
   const fileExt = file.name.split('.').pop();
   const fileName = `${bikeId}_${Date.now()}.${fileExt}`;
@@ -174,11 +171,9 @@ export async function uploadImageToSupabase(file: File, bikeId: string): Promise
   return data.publicUrl;
 }
 
-// Удалить изображение из Supabase Storage
 export async function deleteImageFromSupabase(imageUrl: string): Promise<boolean> {
-  if (!isSupabaseConfigured() || !supabase) return false;
+  if (!supabase) return false;
   
-  // Извлекаем путь из URL
   const urlParts = imageUrl.split('/storage/v1/object/public/bike-images/');
   if (urlParts.length < 2) return false;
   

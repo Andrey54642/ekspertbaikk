@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Bike, SiteSettings } from '../types';
-import { isSupabaseConfigured } from '../config/supabase';
-import * as supabaseService from '../services/supabaseService';
+import { supabase, isSupabaseConfigured } from '../config/supabase';
+import { fetchBikes, fetchSettings, addBikeToSupabase, updateBikeInSupabase, deleteBikeFromSupabase, updateSettingsInSupabase } from '../services/supabaseService';
 
 interface BikeContextType {
   bikes: Bike[];
@@ -47,6 +47,10 @@ const defaultSettings: SiteSettings = {
   address: 'г. Краснодар, ул. Снесарева, 3',
   workHours: 'Ежедневно с 9:00 до 21:00',
   whatsapp: '79001234567',
+  telegram: '',
+  instagram: '',
+  vk: '',
+  youtube: '',
 };
 
 const BikeContext = createContext<BikeContextType | undefined>(undefined);
@@ -57,7 +61,6 @@ export function BikeProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Загрузка данных при старте
   useEffect(() => {
     loadData();
   }, []);
@@ -66,11 +69,10 @@ export function BikeProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
 
     if (isSupabaseConfigured()) {
-      // Загрузка из Supabase (общие данные для всех)
       try {
         const [bikesData, settingsData] = await Promise.all([
-          supabaseService.fetchBikes(),
-          supabaseService.fetchSettings(),
+          fetchBikes(),
+          fetchSettings(),
         ]);
 
         if (bikesData.length > 0) {
@@ -81,11 +83,9 @@ export function BikeProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Error loading from Supabase:', error);
-        // Fallback на localStorage
         loadFromLocalStorage();
       }
     } else {
-      // Fallback на localStorage
       loadFromLocalStorage();
     }
 
@@ -113,7 +113,6 @@ export function BikeProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Сохранение в localStorage как backup
   useEffect(() => {
     if (!isLoading) {
       localStorage.setItem('expertbikes_bikes', JSON.stringify(bikes));
@@ -130,7 +129,7 @@ export function BikeProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
 
     if (isSupabaseConfigured()) {
-      const id = await supabaseService.addBikeToSupabase(bike);
+      const id = await addBikeToSupabase(bike);
       if (id) {
         const newBike: Bike = { ...bike, id };
         setBikes(prev => [...prev, newBike]);
@@ -147,7 +146,7 @@ export function BikeProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
 
     if (isSupabaseConfigured()) {
-      await supabaseService.updateBikeInSupabase(id, updates);
+      await updateBikeInSupabase(id, updates);
     }
 
     setBikes(prev => prev.map(bike => bike.id === id ? { ...bike, ...updates } : bike));
@@ -158,7 +157,7 @@ export function BikeProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
 
     if (isSupabaseConfigured()) {
-      await supabaseService.deleteBikeFromSupabase(id);
+      await deleteBikeFromSupabase(id);
     }
 
     setBikes(prev => prev.filter(bike => bike.id !== id));
@@ -169,7 +168,7 @@ export function BikeProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
 
     if (isSupabaseConfigured()) {
-      await supabaseService.updateSettingsInSupabase(newSettings);
+      await updateSettingsInSupabase(newSettings);
     }
 
     setSettings(prev => ({ ...prev, ...newSettings }));

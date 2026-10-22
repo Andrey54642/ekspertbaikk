@@ -1,10 +1,8 @@
--- ============================================
--- SQL ДЛЯ НАСТРОЙКИ БАЗЫ ДАННЫХ SUPABASE
+-- SQL для настройки базы данных Supabase
 -- Выполните этот SQL в SQL Editor вашего проекта Supabase
--- ============================================
 
--- Таблица электровелосипедов
-CREATE TABLE bikes (
+-- Таблица велосипедов
+CREATE TABLE IF NOT EXISTS bikes (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -19,39 +17,54 @@ CREATE TABLE bikes (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Таблица настроек сайта
-CREATE TABLE settings (
+-- Таблица настроек
+CREATE TABLE IF NOT EXISTS settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   phone TEXT DEFAULT '+7 (900) 123-45-67',
   address TEXT DEFAULT 'г. Краснодар, ул. Снесарева, 3',
   work_hours TEXT DEFAULT 'Ежедневно с 9:00 до 21:00',
   whatsapp TEXT DEFAULT '79001234567',
+  telegram TEXT DEFAULT '',
+  instagram TEXT DEFAULT '',
+  vk TEXT DEFAULT '',
+  youtube TEXT DEFAULT '',
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Вставляем начальные настройки
-INSERT INTO settings (id, phone, address, work_hours, whatsapp)
-VALUES (1, '+7 (900) 123-45-67', 'г. Краснодар, ул. Снесарева, 3', 'Ежедневно с 9:00 до 21:00', '79001234567');
+-- Вставка начальных настроек
+INSERT INTO settings (id, phone, address, work_hours, whatsapp, telegram, instagram, vk, youtube)
+VALUES (1, '+7 (900) 123-45-67', 'г. Краснодар, ул. Снесарева, 3', 'Ежедневно с 9:00 до 21:00', '79001234567', '', '', '', '')
+ON CONFLICT (id) DO NOTHING;
 
--- Вставляем начальные велосипеды
+-- Вставка начальных велосипедов
 INSERT INTO bikes (id, name, description, price_per_week, deposit, features, badge, badge_color, accent_color)
 VALUES 
   ('1', 'Майкалин U5', 'Мощный электровелосипед с увеличенным запасом хода. Идеален для длительных поездок по городу.', 4500, 1500, ARRAY['Мощный электродвигатель', 'Увеличенный запас хода', 'Комфортная посадка', 'Светодиодная фара'], 'ХИТ', 'green', 'green'),
-  ('2', 'Kugo U5', 'Компактный и манёвренный электровелосипед. Отличный выбор для городских поездок.', 4000, 1500, ARRAY['Лёгкий и компактный', 'Быстрая зарядка', 'Складная конструкция', 'Дисковые тормоза'], 'ВЫГОДНО', 'cyan', 'cyan');
+  ('2', 'Kugo U5', 'Компактный и манёвренный электровелосипед. Отличный выбор для городских поездок.', 4000, 1500, ARRAY['Лёгкий и компактный', 'Быстрая зарядка', 'Складная конструкция', 'Дисковые тормоза'], 'ВЫГОДНО', 'cyan', 'cyan')
+ON CONFLICT (id) DO NOTHING;
 
--- Разрешаем публичный доступ для чтения (для всех посетителей сайта)
+-- Включение RLS
 ALTER TABLE bikes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- Политика чтения для всех
+-- Политики для bikes
+DROP POLICY IF EXISTS "Enable read access for all users" ON bikes;
 CREATE POLICY "Enable read access for all users" ON bikes FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Enable insert for all users" ON bikes;
+CREATE POLICY "Enable insert for all users" ON bikes FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Enable update for all users" ON bikes;
+CREATE POLICY "Enable update for all users" ON bikes FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Enable delete for all users" ON bikes;
+CREATE POLICY "Enable delete for all users" ON bikes FOR DELETE USING (true);
+
+-- Политики для settings
+DROP POLICY IF EXISTS "Enable read access for all users" ON settings;
 CREATE POLICY "Enable read access for all users" ON settings FOR SELECT USING (true);
 
--- Политика записи для всех (для админ-панели)
--- В продакшене лучше использовать аутентификацию Supabase
-CREATE POLICY "Enable insert for all users" ON bikes FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update for all users" ON bikes FOR UPDATE USING (true);
-CREATE POLICY "Enable delete for all users" ON bikes FOR DELETE USING (true);
+DROP POLICY IF EXISTS "Enable update for all users" ON settings;
 CREATE POLICY "Enable update for all users" ON settings FOR UPDATE USING (true);
 
 -- Функция для автоматического обновления updated_at
@@ -63,11 +76,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Триггеры для bikes
+DROP TRIGGER IF EXISTS update_bikes_updated_at ON bikes;
 CREATE TRIGGER update_bikes_updated_at
   BEFORE UPDATE ON bikes
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+-- Триггеры для settings
+DROP TRIGGER IF EXISTS update_settings_updated_at ON settings;
 CREATE TRIGGER update_settings_updated_at
   BEFORE UPDATE ON settings
   FOR EACH ROW
@@ -75,9 +92,15 @@ CREATE TRIGGER update_settings_updated_at
 
 -- Создание бакета для хранения изображений
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('bike-images', 'bike-images', true);
+VALUES ('bike-images', 'bike-images', true)
+ON CONFLICT (id) DO NOTHING;
 
--- Политика доступа к изображениям
+-- Политики для storage
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'bike-images');
+
+DROP POLICY IF EXISTS "Enable insert for all users" ON storage.objects;
 CREATE POLICY "Enable insert for all users" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'bike-images');
+
+DROP POLICY IF EXISTS "Enable delete for all users" ON storage.objects;
 CREATE POLICY "Enable delete for all users" ON storage.objects FOR DELETE USING (bucket_id = 'bike-images');

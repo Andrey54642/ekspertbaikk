@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useBikes } from '../context/BikeContext';
 import { Bike } from '../types';
-import { isSupabaseConfigured } from '../config/supabase';
-import { uploadImageToSupabase, deleteImageFromSupabase } from '../services/supabaseService';
 
 export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
   const { bikes, settings, addBike, updateBike, deleteBike, updateSettings, isSyncing, refreshData } = useBikes();
-  const [activeTab, setActiveTab] = useState<'bikes' | 'settings' | 'status'>('bikes');
+  const [activeTab, setActiveTab] = useState<'bikes' | 'settings' | 'social' | 'status'>('bikes');
   const [editingBike, setEditingBike] = useState<Bike | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
@@ -15,11 +13,21 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
   const [address, setAddress] = useState(settings.address);
   const [workHours, setWorkHours] = useState(settings.workHours);
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
+  const [telegram, setTelegram] = useState(settings.telegram);
+  const [instagram, setInstagram] = useState(settings.instagram);
+  const [vk, setVk] = useState(settings.vk);
+  const [youtube, setYoutube] = useState(settings.youtube);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState('');
 
   const handleSaveSettings = async () => {
     await updateSettings({ phone, address, workHours, whatsapp });
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const handleSaveSocial = async () => {
+    await updateSettings({ telegram, instagram, vk, youtube });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
   };
@@ -90,6 +98,12 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
             className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'settings' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
           >
             <i className="fas fa-cog mr-2"></i>Настройки
+          </button>
+          <button
+            onClick={() => { setActiveTab('social'); setEditingBike(null); setIsAdding(false); }}
+            className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'social' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            <i className="fas fa-share-alt mr-2"></i>Соцсети
           </button>
           <button
             onClick={() => { setActiveTab('status'); setEditingBike(null); setIsAdding(false); }}
@@ -226,6 +240,66 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
 
+        {/* Social Tab */}
+        {activeTab === 'social' && (
+          <div className="max-w-2xl">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Социальные сети</h2>
+            <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-4 sm:space-y-5">
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  <i className="fab fa-telegram text-blue-400 mr-2"></i>Telegram
+                </label>
+                <input type="url" value={telegram} onChange={(e) => setTelegram(e.target.value)}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                  placeholder="https://t.me/your_channel" />
+                <p className="text-gray-500 text-xs mt-1">Ссылка на ваш Telegram канал или чат</p>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  <i className="fab fa-instagram text-pink-400 mr-2"></i>Instagram
+                </label>
+                <input type="url" value={instagram} onChange={(e) => setInstagram(e.target.value)}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                  placeholder="https://instagram.com/your_profile" />
+                <p className="text-gray-500 text-xs mt-1">Ссылка на ваш профиль в Instagram</p>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  <i className="fab fa-vk text-blue-400 mr-2"></i>ВКонтакте
+                </label>
+                <input type="url" value={vk} onChange={(e) => setVk(e.target.value)}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                  placeholder="https://vk.com/your_group" />
+                <p className="text-gray-500 text-xs mt-1">Ссылка на вашу группу ВКонтакте</p>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  <i className="fab fa-youtube text-red-400 mr-2"></i>YouTube
+                </label>
+                <input type="url" value={youtube} onChange={(e) => setYoutube(e.target.value)}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                  placeholder="https://youtube.com/your_channel" />
+                <p className="text-gray-500 text-xs mt-1">Ссылка на ваш YouTube канал</p>
+              </div>
+
+              <div className="pt-2 sm:pt-4">
+                <button onClick={handleSaveSocial}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] w-full sm:w-auto">
+                  <i className="fas fa-save mr-2"></i>Сохранить соцсети
+                </button>
+                {settingsSaved && (
+                  <span className="ml-0 sm:ml-3 mt-2 sm:mt-0 block sm:inline text-green-400 text-sm">
+                    <i className="fas fa-check-circle mr-1"></i>Сохранено!
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Status Tab */}
         {activeTab === 'status' && (
           <div className="max-w-2xl">
@@ -234,65 +308,28 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
             <div className="space-y-4">
               <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-5 sm:p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <i className={`fas ${isSupabaseConfigured() ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-yellow-400'}`}></i>
+                  <i className={`fas ${false ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-yellow-400'}`}></i>
                   База данных
                 </h3>
-                {isSupabaseConfigured() ? (
-                  <div className="space-y-3">
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                      <p className="text-green-400 font-medium text-sm">✓ Supabase подключен</p>
-                      <p className="text-green-400/70 text-xs mt-1">Данные синхронизируются для всех посетителей сайта</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-gray-800/50 rounded-xl p-3 text-center">
-                        <div className="text-2xl font-bold text-white">{bikes.length}</div>
-                        <div className="text-gray-500 text-xs">велосипедов</div>
-                      </div>
-                      <div className="bg-gray-800/50 rounded-xl p-3 text-center">
-                        <div className="text-2xl font-bold text-white">{bikes.filter(b => b.image).length}</div>
-                        <div className="text-gray-500 text-xs">с фото</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-                      <p className="text-yellow-400 font-medium text-sm mb-2">⚠ Supabase не настроен</p>
-                      <p className="text-yellow-400/70 text-xs mb-3">Сейчас данные хранятся только в вашем браузере. Чтобы данные были общими для всех посетителей, настройте Supabase:</p>
-                      <ol className="text-yellow-400/70 text-xs space-y-1 list-decimal list-inside">
-                        <li>Зарегистрируйтесь на <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
-                        <li>Создайте новый проект</li>
-                        <li>Скопируйте URL и anon ключ из Settings → API</li>
-                        <li>Вставьте их в файл <code className="bg-gray-800 px-1 rounded">src/config/supabase.ts</code></li>
-                        <li>Выполните SQL из файла <code className="bg-gray-800 px-1 rounded">SETUP.sql</code> в SQL Editor</li>
-                      </ol>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-xl p-4">
-                      <p className="text-gray-400 text-sm">
-                        <i className="fas fa-info-circle mr-2 text-blue-400"></i>
-                        Без Supabase данные сохраняются только локально в браузере.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-5 sm:p-6">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <i className="fas fa-server text-cyan-400"></i>
-                  Хранилище изображений
-                </h3>
-                {isSupabaseConfigured() ? (
-                  <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                    <p className="text-green-400 font-medium text-sm">✓ Supabase Storage</p>
-                    <p className="text-green-400/70 text-xs mt-1">Изображения хранятся в облаке и доступны всем</p>
-                  </div>
-                ) : (
+                <div className="space-y-3">
                   <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-                    <p className="text-yellow-400 font-medium text-sm">⚠ Локальное хранилище</p>
-                    <p className="text-yellow-400/70 text-xs mt-1">Изображения хранятся только в вашем браузере</p>
+                    <p className="text-yellow-400 font-medium text-sm mb-2">⚠ Supabase не настроен</p>
+                    <p className="text-yellow-400/70 text-xs mb-3">Сейчас данные хранятся только в вашем браузере. Чтобы данные были общими для всех посетителей, настройте Supabase:</p>
+                    <ol className="text-yellow-400/70 text-xs space-y-1 list-decimal list-inside">
+                      <li>Зарегистрируйтесь на <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
+                      <li>Создайте новый проект</li>
+                      <li>Скопируйте URL и anon ключ из Settings → API</li>
+                      <li>Вставьте их в файл <code className="bg-gray-800 px-1 rounded">src/config/supabase.ts</code></li>
+                      <li>Выполните SQL из файла <code className="bg-gray-800 px-1 rounded">SETUP.sql</code> в SQL Editor</li>
+                    </ol>
                   </div>
-                )}
+                  <div className="bg-gray-800/50 rounded-xl p-4">
+                    <p className="text-gray-400 text-sm">
+                      <i className="fas fa-info-circle mr-2 text-blue-400"></i>
+                      Без Supabase данные сохраняются только локально в браузере.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {refreshStatus && (
@@ -343,87 +380,10 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
   const [badge, setBadge] = useState(bike?.badge || '');
   const [badgeColor, setBadgeColor] = useState(bike?.badgeColor || 'green');
   const [accentColor, setAccentColor] = useState(bike?.accentColor || 'green');
-  const [imagePreview, setImagePreview] = useState(bike?.image || '');
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const [uploadProgress, setUploadProgress] = useState('');
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError('Файл слишком большой. Максимум 10MB');
-      return;
-    }
-
-    setUploadError('');
-    setUploading(true);
-    setUploadProgress('Чтение файла...');
-
-    // Показываем превью сразу
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      setImagePreview(base64);
-    };
-    reader.readAsDataURL(file);
-
-    // Если Supabase настроен — загружаем в облако
-    if (isSupabaseConfigured()) {
-      setUploadProgress('Загрузка в облако...');
-      try {
-        const bikeId = bike?.id || `new_${Date.now()}`;
-        const imageUrl = await uploadImageToSupabase(file, bikeId);
-        
-        if (imageUrl) {
-          setImage(imageUrl);
-          setUploadProgress('Готово!');
-          setUploadError('');
-        } else {
-          setUploadError('Ошибка загрузки в облако');
-        }
-      } catch (error) {
-        setUploadError('Ошибка загрузки: ' + (error as Error).message);
-      }
-    } else {
-      // Fallback: используем base64
-      setUploadProgress('Сохранение локально...');
-      const reader2 = new FileReader();
-      reader2.onloadend = () => {
-        const base64 = reader2.result as string;
-        setImage(base64);
-        setUploadProgress('Готово!');
-      };
-      reader2.readAsDataURL(file);
-    }
-
-    setTimeout(() => {
-      setUploading(false);
-      setUploadProgress('');
-    }, 1000);
-  };
-
-  const handleImageUrl = (url: string) => {
-    setImage(url);
-    setImagePreview(url);
-  };
-
-  const handleDeleteImage = async () => {
-    if (image && isSupabaseConfigured() && image.includes('supabase')) {
-      await deleteImageFromSupabase(image);
-    }
-    setImage('');
-    setImagePreview('');
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !pricePerWeek || !deposit) {
-      alert('Заполните обязательные поля');
-      return;
-    }
-    await onSave({
+    onSave({
       name,
       description,
       pricePerWeek: Number(pricePerWeek),
@@ -447,175 +407,89 @@ function BikeForm({ bike, onSave, onCancel }: { bike: Bike | null; onSave: (data
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="space-y-4 sm:space-y-5">
-          <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-3 sm:space-y-4">
-            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-              <i className="fas fa-info-circle text-green-400"></i>Основная информация
-            </h3>
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+        <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-3 sm:space-y-4">
+          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <i className="fas fa-info-circle text-green-400"></i>Основная информация
+          </h3>
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">Название *</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+              placeholder="Майкалин U5" required />
+          </div>
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">Описание</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
+              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all resize-none"
+              placeholder="Описание электровелосипеда..." />
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">Название *</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+              <label className="block text-gray-300 text-sm font-medium mb-2">Цена/неделя (₽) *</label>
+              <input type="number" value={pricePerWeek} onChange={(e) => setPricePerWeek(e.target.value)}
                 className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                placeholder="Майкалин U5" required />
+                placeholder="4500" required />
             </div>
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">Описание</label>
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
-                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all resize-none"
-                placeholder="Описание электровелосипеда..." />
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-2">Цена/неделя (₽) *</label>
-                <input type="number" value={pricePerWeek} onChange={(e) => setPricePerWeek(e.target.value)}
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="4500" required />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-2">Залог (₽) *</label>
-                <input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)}
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="1500" required />
-              </div>
+              <label className="block text-gray-300 text-sm font-medium mb-2">Залог (₽) *</label>
+              <input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)}
+                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                placeholder="1500" required />
             </div>
           </div>
+        </div>
 
-          <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-3 sm:space-y-4">
-            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-              <i className="fas fa-list text-cyan-400"></i>Характеристики и оформление
-            </h3>
+        <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-3 sm:space-y-4">
+          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <i className="fas fa-list text-cyan-400"></i>Характеристики
+          </h3>
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">Особенности (каждая с новой строки)</label>
+            <textarea value={features} onChange={(e) => setFeatures(e.target.value)} rows={5}
+              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all resize-none"
+              placeholder={"Мощный электродвигатель\nУвеличенный запас хода\nКомфортная посадка"} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">Особенности (каждая с новой строки)</label>
-              <textarea value={features} onChange={(e) => setFeatures(e.target.value)} rows={5}
-                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all resize-none"
-                placeholder={"Мощный электродвигатель\nУвеличенный запас хода\nКомфортная посадка"} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-2">Бейдж (метка)</label>
-                <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)}
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                  placeholder="ХИТ, НОВИНКА, СКИДКА..." />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-2">Цвет бейджа</label>
-                <select value={badgeColor} onChange={(e) => setBadgeColor(e.target.value)}
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]">
-                  <option value="green">Зелёный</option>
-                  <option value="cyan">Голубой</option>
-                  <option value="purple">Фиолетовый</option>
-                  <option value="yellow">Жёлтый</option>
-                  <option value="red">Красный</option>
-                </select>
-              </div>
+              <label className="block text-gray-300 text-sm font-medium mb-2">Бейдж</label>
+              <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)}
+                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
+                placeholder="ХИТ" />
             </div>
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">Основной цвет карточки</label>
-              <select value={accentColor} onChange={(e) => setAccentColor(e.target.value)}
+              <label className="block text-gray-300 text-sm font-medium mb-2">Цвет бейджа</label>
+              <select value={badgeColor} onChange={(e) => setBadgeColor(e.target.value)}
                 className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]">
                 <option value="green">Зелёный</option>
                 <option value="cyan">Голубой</option>
                 <option value="purple">Фиолетовый</option>
                 <option value="yellow">Жёлтый</option>
                 <option value="red">Красный</option>
-                <option value="pink">Розовый</option>
               </select>
             </div>
           </div>
-        </div>
-
-        <div className="space-y-4 sm:space-y-5">
-          <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6 space-y-3 sm:space-y-4">
-            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-              <i className="fas fa-cloud-upload-alt text-purple-400"></i>Фотография
-              {isSupabaseConfigured() && (
-                <span className="ml-auto text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
-                  <i className="fas fa-cloud mr-1"></i>Облако
-                </span>
-              )}
-            </h3>
-            
-            <div className="w-full aspect-video rounded-xl overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center relative">
-              {imagePreview ? (
-                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <div className="text-center">
-                  <i className="fas fa-image text-gray-600 text-3xl sm:text-4xl mb-2"></i>
-                  <p className="text-gray-500 text-xs sm:text-sm">Нет изображения</p>
-                </div>
-              )}
-              {uploading && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <div className="text-center">
-                    <i className="fas fa-spinner fa-spin text-green-400 text-2xl mb-2"></i>
-                    <p className="text-white text-sm">{uploadProgress || 'Загрузка...'}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {uploadError && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-xs sm:text-sm">
-                <i className="fas fa-exclamation-circle mr-1"></i>{uploadError}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">Загрузить файл</label>
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="image-upload" disabled={uploading} />
-              <label htmlFor="image-upload"
-                className={`flex items-center justify-center gap-2 w-full bg-gray-800/50 border border-gray-700 border-dashed rounded-xl px-4 py-4 text-gray-400 hover:text-green-400 hover:border-green-500/50 cursor-pointer transition-all min-h-[48px] ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-cloud-upload-alt'}`}></i>
-                <span className="text-xs sm:text-sm">{uploading ? 'Загрузка...' : 'Выберите изображение (до 10MB)'}</span>
-              </label>
-            </div>
-
-            <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">Или вставьте URL</label>
-              <input type="url" onChange={(e) => handleImageUrl(e.target.value)}
-                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]"
-                placeholder="https://example.com/image.jpg" />
-            </div>
-
-            {imagePreview && !uploading && (
-              <button type="button" onClick={handleDeleteImage}
-                className="text-red-400 hover:text-red-300 text-sm transition-colors min-h-[44px] flex items-center">
-                <i className="fas fa-trash mr-1"></i>Удалить изображение
-              </button>
-            )}
-          </div>
-
-          <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2 mb-3 sm:mb-4">
-              <i className="fas fa-eye text-yellow-400"></i>Предпросмотр
-            </h3>
-            <div className="bg-gray-900/50 rounded-xl p-3 sm:p-4 border border-gray-700/30">
-              <div className="w-full h-28 sm:h-32 rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center mb-3">
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <i className="fas fa-bicycle text-gray-600 text-2xl sm:text-3xl"></i>
-                )}
-              </div>
-              <h4 className="text-white font-bold text-sm sm:text-base">{name || 'Название'}</h4>
-              <p className="text-gray-400 text-xs sm:text-sm mt-1 line-clamp-2">{description || 'Описание...'}</p>
-              <div className="flex flex-wrap gap-2 sm:gap-3 mt-3">
-                <span className="text-green-400 font-bold text-xs sm:text-sm">{Number(pricePerWeek || 0).toLocaleString()}₽/нед</span>
-                <span className="text-yellow-400 text-xs sm:text-sm">Залог: {Number(deposit || 0).toLocaleString()}₽</span>
-              </div>
-            </div>
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">Основной цвет карточки</label>
+            <select value={accentColor} onChange={(e) => setAccentColor(e.target.value)}
+              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[44px]">
+              <option value="green">Зелёный</option>
+              <option value="cyan">Голубой</option>
+              <option value="purple">Фиолетовый</option>
+              <option value="yellow">Жёлтый</option>
+              <option value="red">Красный</option>
+              <option value="pink">Розовый</option>
+            </select>
           </div>
         </div>
 
-        <div className="lg:col-span-2 flex flex-col sm:flex-row gap-3 pt-2 sm:pt-4">
-          <button type="submit" disabled={uploading}
-            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-700 text-white px-6 sm:px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] flex items-center justify-center order-2 sm:order-1">
-            <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-save'} mr-2`}></i>
-            {uploading ? 'Загрузка...' : (bike ? 'Сохранить изменения' : 'Добавить')}
+        <div className="flex flex-col sm:flex-row gap-3 pt-2 sm:pt-4">
+          <button type="submit"
+            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 sm:px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] flex items-center justify-center order-2 sm:order-1">
+            <i className="fas fa-save mr-2"></i>{bike ? 'Сохранить изменения' : 'Добавить'}
           </button>
-          <button type="button" onClick={onCancel} disabled={uploading}
-            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-6 py-3.5 rounded-xl font-medium transition-all min-h-[48px] flex items-center justify-center order-1 sm:order-2">
+          <button type="button" onClick={onCancel}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3.5 rounded-xl font-medium transition-all min-h-[48px] flex items-center justify-center order-1 sm:order-2">
             Отмена
           </button>
         </div>

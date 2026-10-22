@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /*/admin
+
+Sitemap: https://expertbike.ru/sitemap.xml
+
+# Разрешаем индексацию для всех поисковых систем
+User-agent: Googlebot
+Allow: /
+Disallow: /admin
+
+User-agent: Yandex
+Allow: /
+Disallow: /admin
+
+# Время между запросами для вежливых ботов
+Crawl-delay: 1

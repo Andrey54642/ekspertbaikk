@@ -4,7 +4,7 @@ export interface Bike {
   description: string;
   pricePerWeek: number;
   deposit: number;
-  image: string; // URL изображения с сервера
+  image: string;
   features: string[];
   badge?: string;
   badgeColor?: string;
@@ -16,4 +16,8 @@ export interface SiteSettings {
   address: string;
   workHours: string;
   whatsapp: string;
+  telegram: string;
+  instagram: string;
+  vk: string;
+  youtube: string;
 }
