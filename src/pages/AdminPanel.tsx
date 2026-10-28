@@ -5,7 +5,7 @@ import { uploadImage, deleteImage, getImageUrl } from '../services/apiService';
 
 export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
   const { bikes, settings, addBike, updateBike, deleteBike, updateSettings, isSyncing, refreshData } = useBikes();
-  const [activeTab, setActiveTab] = useState<'bikes' | 'settings' | 'social' | 'metrika' | 'map' | 'status'>('bikes');
+  const [activeTab, setActiveTab] = useState<'bikes' | 'settings' | 'social' | 'metrika' | 'map' | 'content' | 'status'>('bikes');
   const [editingBike, setEditingBike] = useState<Bike | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
@@ -23,6 +23,26 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
   const [mapLat, setMapLat] = useState(settings.mapLat || 45.035470);
   const [mapLng, setMapLng] = useState(settings.mapLng || 38.975310);
   const [mapZoom, setMapZoom] = useState(settings.mapZoom || 16);
+  
+  // SEO Sections toggles
+  const [showRentSteps, setShowRentSteps] = useState(settings.showRentSteps ?? true);
+  const [showCourierSection, setShowCourierSection] = useState(settings.showCourierSection ?? true);
+  const [showReviews, setShowReviews] = useState(settings.showReviews ?? true);
+  const [showDistricts, setShowDistricts] = useState(settings.showDistricts ?? true);
+  const [showLandmarks, setShowLandmarks] = useState(settings.showLandmarks ?? true);
+  const [showPromos, setShowPromos] = useState(settings.showPromos ?? true);
+  const [showContactForm, setShowContactForm] = useState(settings.showContactForm ?? true);
+  
+  // SEO Sections content
+  const [rentSteps, setRentSteps] = useState(settings.rentSteps || []);
+  const [courierBenefits, setCourierBenefits] = useState(settings.courierBenefits || []);
+  const [courierEarningDay, setCourierEarningDay] = useState(settings.courierEarningDay || '3000-5000₽');
+  const [courierRentDay, setCourierRentDay] = useState(settings.courierRentDay || '~600₽');
+  const [reviews, setReviews] = useState(settings.reviews || []);
+  const [districts, setDistricts] = useState(settings.districts || []);
+  const [landmarks, setLandmarks] = useState(settings.landmarks || []);
+  const [promos, setPromos] = useState(settings.promos || []);
+  
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState('');
 
@@ -46,6 +66,28 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
 
   const handleSaveMap = async () => {
     await updateSettings({ mapLat, mapLng, mapZoom });
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const handleSaveContent = async () => {
+    await updateSettings({
+      showRentSteps,
+      showCourierSection,
+      showReviews,
+      showDistricts,
+      showLandmarks,
+      showPromos,
+      showContactForm,
+      rentSteps,
+      courierBenefits,
+      courierEarningDay,
+      courierRentDay,
+      reviews,
+      districts,
+      landmarks,
+      promos,
+    });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
   };
@@ -152,6 +194,12 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
             className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'map' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
           >
             <i className="fas fa-map mr-2"></i>Карта
+          </button>
+          <button
+            onClick={() => { setActiveTab('content'); setEditingBike(null); setIsAdding(false); }}
+            className={`px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === 'content' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            <i className="fas fa-file-alt mr-2"></i>Контент
           </button>
           <button
             onClick={() => { setActiveTab('status'); setEditingBike(null); setIsAdding(false); }}
@@ -579,6 +627,480 @@ export default function AdminPanel({ onLogout }: { onLogout: () => void }) {
                 </button>
                 {settingsSaved && (
                   <span className="ml-0 sm:ml-3 mt-2 sm:mt-0 block sm:inline text-green-400 text-sm">
+                    <i className="fas fa-check-circle mr-1"></i>Сохранено!
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Content Tab */}
+        {activeTab === 'content' && (
+          <div className="max-w-4xl">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Управление контентом сайта</h2>
+            
+            <div className="space-y-6">
+              {/* Переключатели секций */}
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <i className="fas fa-toggle-on text-green-400"></i>
+                  Включение/выключение секций
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { label: 'Как арендовать', state: showRentSteps, setter: setShowRentSteps },
+                    { label: 'Для курьеров', state: showCourierSection, setter: setShowCourierSection },
+                    { label: 'Отзывы', state: showReviews, setter: setShowReviews },
+                    { label: 'Районы обслуживания', state: showDistricts, setter: setShowDistricts },
+                    { label: 'Рядом с нами', state: showLandmarks, setter: setShowLandmarks },
+                    { label: 'Акции и скидки', state: showPromos, setter: setShowPromos },
+                    { label: 'Форма заявки', state: showContactForm, setter: setShowContactForm },
+                  ].map((item, idx) => (
+                    <label key={idx} className="flex items-center gap-3 bg-gray-800/50 rounded-xl p-3 cursor-pointer hover:bg-gray-800/70 transition-all">
+                      <input
+                        type="checkbox"
+                        checked={item.state}
+                        onChange={(e) => item.setter(e.target.checked)}
+                        className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-green-500 focus:ring-green-500 focus:ring-offset-gray-900"
+                      />
+                      <span className="text-gray-300 text-sm">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Шаги аренды */}
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i className="fas fa-list-ol text-cyan-400"></i>
+                    Шаги аренды
+                  </h3>
+                  <button
+                    onClick={() => setRentSteps([...rentSteps, { id: Date.now().toString(), num: (rentSteps.length + 1).toString(), title: '', desc: '', icon: 'fa-star' }])}
+                    className="bg-green-500/10 hover:bg-green-500/20 text-green-400 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    <i className="fas fa-plus mr-1"></i>Добавить
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {rentSteps.map((step, idx) => (
+                    <div key={step.id} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                        <input
+                          type="text"
+                          value={step.num}
+                          onChange={(e) => {
+                            const newSteps = [...rentSteps];
+                            newSteps[idx] = { ...step, num: e.target.value };
+                            setRentSteps(newSteps);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                          placeholder="Номер"
+                        />
+                        <input
+                          type="text"
+                          value={step.title}
+                          onChange={(e) => {
+                            const newSteps = [...rentSteps];
+                            newSteps[idx] = { ...step, title: e.target.value };
+                            setRentSteps(newSteps);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                          placeholder="Заголовок"
+                        />
+                        <input
+                          type="text"
+                          value={step.desc}
+                          onChange={(e) => {
+                            const newSteps = [...rentSteps];
+                            newSteps[idx] = { ...step, desc: e.target.value };
+                            setRentSteps(newSteps);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                          placeholder="Описание"
+                        />
+                        <div className="flex gap-2">
+                          <select
+                            value={step.icon}
+                            onChange={(e) => {
+                              const newSteps = [...rentSteps];
+                              newSteps[idx] = { ...step, icon: e.target.value };
+                              setRentSteps(newSteps);
+                            }}
+                            className="flex-1 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-2 text-white text-sm"
+                          >
+                            <option value="fa-phone">📞 Телефон</option>
+                            <option value="fa-location-dot">📍 Адрес</option>
+                            <option value="fa-file-contract">📄 Документы</option>
+                            <option value="fa-bicycle">🚲 Велосипед</option>
+                            <option value="fa-calendar-check">📅 Календарь</option>
+                            <option value="fa-money-bill">💰 Деньги</option>
+                            <option value="fa-clock">🕐 Время</option>
+                          </select>
+                          <button
+                            onClick={() => setRentSteps(rentSteps.filter((_, i) => i !== idx))}
+                            className="text-red-400 hover:text-red-300 px-2"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Преимущества для курьеров */}
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i className="fas fa-star text-yellow-400"></i>
+                    Преимущества для курьеров
+                  </h3>
+                  <button
+                    onClick={() => setCourierBenefits([...courierBenefits, { id: Date.now().toString(), text: '' }])}
+                    className="bg-green-500/10 hover:bg-green-500/20 text-green-400 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    <i className="fas fa-plus mr-1"></i>Добавить
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-2">Средний доход в день</label>
+                    <input
+                      type="text"
+                      value={courierEarningDay}
+                      onChange={(e) => setCourierEarningDay(e.target.value)}
+                      className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                      placeholder="3000-5000₽"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-2">Аренда в день</label>
+                    <input
+                      type="text"
+                      value={courierRentDay}
+                      onChange={(e) => setCourierRentDay(e.target.value)}
+                      className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                      placeholder="~600₽"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {courierBenefits.map((benefit, idx) => (
+                    <div key={benefit.id} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={benefit.text}
+                        onChange={(e) => {
+                          const newBenefits = [...courierBenefits];
+                          newBenefits[idx] = { ...benefit, text: e.target.value };
+                          setCourierBenefits(newBenefits);
+                        }}
+                        className="flex-1 bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                        placeholder="Преимущество"
+                      />
+                      <button
+                        onClick={() => setCourierBenefits(courierBenefits.filter((_, i) => i !== idx))}
+                        className="text-red-400 hover:text-red-300 px-2"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Отзывы */}
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i className="fas fa-comment text-pink-400"></i>
+                    Отзывы клиентов
+                  </h3>
+                  <button
+                    onClick={() => setReviews([...reviews, { id: Date.now().toString(), name: '', role: '', text: '', rating: 5 }])}
+                    className="bg-green-500/10 hover:bg-green-500/20 text-green-400 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    <i className="fas fa-plus mr-1"></i>Добавить
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {reviews.map((review, idx) => (
+                    <div key={review.id} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <input
+                          type="text"
+                          value={review.name}
+                          onChange={(e) => {
+                            const newReviews = [...reviews];
+                            newReviews[idx] = { ...review, name: e.target.value };
+                            setReviews(newReviews);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                          placeholder="Имя"
+                        />
+                        <input
+                          type="text"
+                          value={review.role}
+                          onChange={(e) => {
+                            const newReviews = [...reviews];
+                            newReviews[idx] = { ...review, role: e.target.value };
+                            setReviews(newReviews);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                          placeholder="Роль (Курьер, Студент...)"
+                        />
+                      </div>
+                      <textarea
+                        value={review.text}
+                        onChange={(e) => {
+                          const newReviews = [...reviews];
+                          newReviews[idx] = { ...review, text: e.target.value };
+                          setReviews(newReviews);
+                        }}
+                        className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-3 resize-none"
+                        rows={2}
+                        placeholder="Текст отзыва"
+                      />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              onClick={() => {
+                                const newReviews = [...reviews];
+                                newReviews[idx] = { ...review, rating: star };
+                                setReviews(newReviews);
+                              }}
+                              className={`text-lg ${star <= review.rating ? 'text-yellow-400' : 'text-gray-600'}`}
+                            >
+                              <i className="fas fa-star"></i>
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => setReviews(reviews.filter((_, i) => i !== idx))}
+                          className="text-red-400 hover:text-red-300 text-sm"
+                        >
+                          <i className="fas fa-trash mr-1"></i>Удалить
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Районы */}
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i className="fas fa-map-marker-alt text-green-400"></i>
+                    Районы обслуживания
+                  </h3>
+                  <button
+                    onClick={() => setDistricts([...districts, ''])}
+                    className="bg-green-500/10 hover:bg-green-500/20 text-green-400 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    <i className="fas fa-plus mr-1"></i>Добавить
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {districts.map((district, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={district}
+                        onChange={(e) => {
+                          const newDistricts = [...districts];
+                          newDistricts[idx] = e.target.value;
+                          setDistricts(newDistricts);
+                        }}
+                        className="flex-1 bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                        placeholder="Район"
+                      />
+                      <button
+                        onClick={() => setDistricts(districts.filter((_, i) => i !== idx))}
+                        className="text-red-400 hover:text-red-300 px-2"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ориентиры */}
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i className="fas fa-location-dot text-blue-400"></i>
+                    Рядом с нами
+                  </h3>
+                  <button
+                    onClick={() => setLandmarks([...landmarks, { id: Date.now().toString(), name: '', distance: '', icon: 'fa-store' }])}
+                    className="bg-green-500/10 hover:bg-green-500/20 text-green-400 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    <i className="fas fa-plus mr-1"></i>Добавить
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {landmarks.map((landmark, idx) => (
+                    <div key={landmark.id} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <input
+                        type="text"
+                        value={landmark.name}
+                        onChange={(e) => {
+                          const newLandmarks = [...landmarks];
+                          newLandmarks[idx] = { ...landmark, name: e.target.value };
+                          setLandmarks(newLandmarks);
+                        }}
+                        className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                        placeholder="Название"
+                      />
+                      <input
+                        type="text"
+                        value={landmark.distance}
+                        onChange={(e) => {
+                          const newLandmarks = [...landmarks];
+                          newLandmarks[idx] = { ...landmark, distance: e.target.value };
+                          setLandmarks(newLandmarks);
+                        }}
+                        className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                        placeholder="Расстояние"
+                      />
+                      <select
+                        value={landmark.icon}
+                        onChange={(e) => {
+                          const newLandmarks = [...landmarks];
+                          newLandmarks[idx] = { ...landmark, icon: e.target.value };
+                          setLandmarks(newLandmarks);
+                        }}
+                        className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                      >
+                        <option value="fa-shopping-bag">🛍️ Магазин</option>
+                        <option value="fa-tree">🌳 Парк</option>
+                        <option value="fa-futbol">⚽ Стадион</option>
+                        <option value="fa-store">🏪 ТРЦ</option>
+                        <option value="fa-utensils">🍽️ Ресторан</option>
+                        <option value="fa-hospital">🏥 Больница</option>
+                      </select>
+                      <button
+                        onClick={() => setLandmarks(landmarks.filter((_, i) => i !== idx))}
+                        className="text-red-400 hover:text-red-300 px-2"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Акции */}
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl border border-gray-700/30 p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i className="fas fa-fire text-red-400"></i>
+                    Акции и скидки
+                  </h3>
+                  <button
+                    onClick={() => setPromos([...promos, { id: Date.now().toString(), title: '', discount: '', desc: '', color: 'green', icon: 'fa-gift' }])}
+                    className="bg-green-500/10 hover:bg-green-500/20 text-green-400 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  >
+                    <i className="fas fa-plus mr-1"></i>Добавить
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {promos.map((promo, idx) => (
+                    <div key={promo.id} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <input
+                          type="text"
+                          value={promo.title}
+                          onChange={(e) => {
+                            const newPromos = [...promos];
+                            newPromos[idx] = { ...promo, title: e.target.value };
+                            setPromos(newPromos);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                          placeholder="Название акции"
+                        />
+                        <input
+                          type="text"
+                          value={promo.discount}
+                          onChange={(e) => {
+                            const newPromos = [...promos];
+                            newPromos[idx] = { ...promo, discount: e.target.value };
+                            setPromos(newPromos);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                          placeholder="Размер скидки (-10%, -15%...)"
+                        />
+                      </div>
+                      <textarea
+                        value={promo.desc}
+                        onChange={(e) => {
+                          const newPromos = [...promos];
+                          newPromos[idx] = { ...promo, desc: e.target.value };
+                          setPromos(newPromos);
+                        }}
+                        className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm mb-3 resize-none"
+                        rows={2}
+                        placeholder="Описание акции"
+                      />
+                      <div className="flex items-center gap-3">
+                        <select
+                          value={promo.color}
+                          onChange={(e) => {
+                            const newPromos = [...promos];
+                            newPromos[idx] = { ...promo, color: e.target.value };
+                            setPromos(newPromos);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                        >
+                          <option value="green">🟢 Зелёный</option>
+                          <option value="cyan">🔵 Голубой</option>
+                          <option value="purple">🟣 Фиолетовый</option>
+                        </select>
+                        <select
+                          value={promo.icon}
+                          onChange={(e) => {
+                            const newPromos = [...promos];
+                            newPromos[idx] = { ...promo, icon: e.target.value };
+                            setPromos(newPromos);
+                          }}
+                          className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                        >
+                          <option value="fa-gift">🎁 Подарок</option>
+                          <option value="fa-calendar-alt">📅 Календарь</option>
+                          <option value="fa-users">👥 Друзья</option>
+                          <option value="fa-percent">📊 Процент</option>
+                          <option value="fa-tag">🏷️ Тег</option>
+                        </select>
+                        <button
+                          onClick={() => setPromos(promos.filter((_, i) => i !== idx))}
+                          className="text-red-400 hover:text-red-300 ml-auto"
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Кнопка сохранения */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-4">
+                <button
+                  onClick={handleSaveContent}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 min-h-[48px] w-full sm:w-auto"
+                >
+                  <i className="fas fa-save mr-2"></i>Сохранить контент
+                </button>
+                {settingsSaved && (
+                  <span className="text-green-400 text-sm">
                     <i className="fas fa-check-circle mr-1"></i>Сохранено!
                   </span>
                 )}

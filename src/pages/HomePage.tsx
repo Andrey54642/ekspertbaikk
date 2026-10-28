@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useBikes } from '../context/BikeContext';
 import { getImageUrl } from '../services/apiService';
+import SEOSections from '../components/SEOSections';
 
 export default function HomePage() {
   const { bikes, settings, isLoading } = useBikes();
@@ -733,6 +734,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* SEO Sections */}
+      <SEOSections />
 
       {/* Footer */}
       <footer className="py-6 sm:py-8 lg:py-10 border-t border-gray-800">

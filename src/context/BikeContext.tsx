@@ -28,6 +28,59 @@ const defaultSettings: SiteSettings = {
   mapLat: 45.035470,
   mapLng: 38.975310,
   mapZoom: 16,
+  
+  // SEO Sections toggles
+  showRentSteps: true,
+  showCourierSection: true,
+  showReviews: true,
+  showDistricts: true,
+  showLandmarks: true,
+  showPromos: true,
+  showContactForm: true,
+  
+  // SEO Sections content
+  rentSteps: [
+    { id: '1', num: '1', title: 'Свяжитесь с нами', desc: 'Позвоните или напишите в WhatsApp', icon: 'fa-phone' },
+    { id: '2', num: '2', title: 'Приезжайте к нам', desc: 'ул. Снесарева, 3', icon: 'fa-location-dot' },
+    { id: '3', num: '3', title: 'Оставьте залог', desc: '1500₽ и документы', icon: 'fa-file-contract' },
+    { id: '4', num: '4', title: 'Получите велосипед', desc: 'Заряженный и готовый', icon: 'fa-bicycle' },
+    { id: '5', num: '5', title: 'Пользуйтесь', desc: 'Неделю или дольше', icon: 'fa-calendar-check' },
+  ],
+  courierBenefits: [
+    { id: '1', text: 'Аренда от 1 недели без переплат' },
+    { id: '2', text: 'Скидки при аренде на месяц (до 20%)' },
+    { id: '3', text: 'Бесплатное техобслуживание' },
+    { id: '4', text: 'Подменный велосипед на время ремонта' },
+    { id: '5', text: 'Помощь с регистрацией в сервисах доставки' },
+    { id: '6', text: 'Приоритетная поддержка 24/7' },
+  ],
+  courierEarningDay: '3000-5000₽',
+  courierRentDay: '~600₽',
+  reviews: [
+    { id: '1', name: 'Алексей К.', role: 'Курьер Яндекс.Еды', text: 'Арендовал Майкалин U5 на месяц для работы курьером. Велосипед мощный, заряда хватает на весь день. За 30 дней ни одной поломки. Рекомендую!', rating: 5 },
+    { id: '2', name: 'Мария С.', role: 'Студентка', text: 'Брала Kugo U5 на неделю для поездок по городу. Очень удобный и лёгкий. Складная конструкция — можно взять в метро. Спасибо!', rating: 5 },
+    { id: '3', name: 'Дмитрий В.', role: 'Курьер Delivery Club', text: 'Работаю уже 2 месяца с Эксперт Байк. Отличные условия для курьеров, бесплатное обслуживание. Зарабатываю больше, чем на обычном велике.', rating: 5 },
+    { id: '4', name: 'Елена П.', role: 'Фрилансер', text: 'Арендую велосипед каждые выходные для прогулок по паркам Краснодара. Очень удобно, не нужно покупать свой. Сервис на высоте!', rating: 5 },
+    { id: '5', name: 'Игорь М.', role: 'Курьер Самокат', text: 'Перешёл с обычного велосипеда на электровелосипед. Теперь успеваю делать в 2 раза больше заказов. Окупается за неделю!', rating: 5 },
+    { id: '6', name: 'Анна Л.', role: 'Мама в декрете', text: 'Брала велосипед на месяц, чтобы ездить с ребёнком в поликлинику и магазины. Очень удобно и экологично. Спасибо за отличный сервис!', rating: 5 },
+  ],
+  districts: [
+    'Центральный', 'Западный обход', 'Юбилейный', 'Музыкальный',
+    'Гидрострой', 'Пашковский', 'Энка', 'Комсомольский',
+    'Фестивальный', 'Московский', 'Прикубанский', 'Центральный округ',
+    'Карасунский', 'Западный', 'Восточный', 'Северный'
+  ],
+  landmarks: [
+    { id: '1', name: 'ТЦ "Красная Площадь"', distance: '5 минут', icon: 'fa-shopping-bag' },
+    { id: '2', name: 'Парк Галицкого', distance: '10 минут', icon: 'fa-tree' },
+    { id: '3', name: 'Стадион ФК Краснодар', distance: '7 минут', icon: 'fa-futbol' },
+    { id: '4', name: 'ТРЦ "СБС Мегамолл"', distance: '8 минут', icon: 'fa-store' },
+  ],
+  promos: [
+    { id: '1', title: 'Первая аренда', discount: '-10%', desc: 'Скидка 10% на первую аренду электровелосипеда', color: 'green', icon: 'fa-gift' },
+    { id: '2', title: 'Аренда на месяц', discount: '-15%', desc: 'Скидка 15% при аренде на месяц и более', color: 'cyan', icon: 'fa-calendar-alt' },
+    { id: '3', title: 'Приведи друга', discount: 'Неделя бесплатно', desc: 'Приведи друга и получи неделю аренды бесплатно', color: 'purple', icon: 'fa-users' },
+  ],
 };
 
 const BikeContext = createContext<BikeContextType | undefined>(undefined);
@@ -47,7 +100,10 @@ export function BikeProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.fetchAllData();
       if (data.bikes) setBikes(data.bikes);
-      if (data.settings) setSettings(data.settings);
+      if (data.settings) {
+        // Merge with defaults to ensure all fields exist
+        setSettings({ ...defaultSettings, ...data.settings });
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     }

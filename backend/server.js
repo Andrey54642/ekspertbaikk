@@ -40,7 +40,22 @@ if (!fs.existsSync(DATA_FILE)) {
       yandexMetrikaId: '',
       mapLat: 45.035470,
       mapLng: 38.975310,
-      mapZoom: 16
+      mapZoom: 16,
+      showRentSteps: true,
+      showCourierSection: true,
+      showReviews: true,
+      showDistricts: true,
+      showLandmarks: true,
+      showPromos: true,
+      showContactForm: true,
+      rentSteps: [],
+      courierBenefits: [],
+      courierEarningDay: '3000-5000₽',
+      courierRentDay: '~600₽',
+      reviews: [],
+      districts: [],
+      landmarks: [],
+      promos: []
     }
   });
 }
@@ -98,7 +113,37 @@ app.get('/api/bikes', (req, res) => {
 app.get('/api/settings', (req, res) => {
   try {
     const data = fs.readJsonSync(DATA_FILE);
-    res.json(data.settings || {});
+    const defaults = {
+      phone: '+7 (900) 123-45-67',
+      address: 'г. Краснодар, ул. Снесарева, 3',
+      workHours: 'Ежедневно с 9:00 до 21:00',
+      whatsapp: '79001234567',
+      telegram: '',
+      instagram: '',
+      vk: '',
+      youtube: '',
+      customSocials: [],
+      yandexMetrikaId: '',
+      mapLat: 45.035470,
+      mapLng: 38.975310,
+      mapZoom: 16,
+      showRentSteps: true,
+      showCourierSection: true,
+      showReviews: true,
+      showDistricts: true,
+      showLandmarks: true,
+      showPromos: true,
+      showContactForm: true,
+      rentSteps: [],
+      courierBenefits: [],
+      courierEarningDay: '3000-5000₽',
+      courierRentDay: '~600₽',
+      reviews: [],
+      districts: [],
+      landmarks: [],
+      promos: []
+    };
+    res.json({ ...defaults, ...(data.settings || {}) });
   } catch (error) {
     res.status(500).json({ error: 'Ошибка чтения настроек' });
   }
