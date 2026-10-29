@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { useBikes } from '../context/BikeContext';
 import { getImageUrl } from '../services/apiService';
 import SEOSections from '../components/SEOSections';
+import FloatingButtons from '../components/FloatingButtons';
+import RentalCalculator from '../components/RentalCalculator';
+import ToastContainer from '../components/ToastContainer';
+import ReviewsSlider from '../components/ReviewsSlider';
+import ModelsComparison from '../components/ModelsComparison';
+import CourierLanding from '../components/CourierLanding';
+import RepairServiceLanding from '../components/RepairServiceLanding';
 
 export default function HomePage() {
   const { bikes, settings, isLoading } = useBikes();
@@ -734,6 +741,27 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Floating Buttons */}
+      <FloatingButtons />
+
+      {/* Toast Container */}
+      <ToastContainer />
+
+      {/* Rental Calculator */}
+      <RentalCalculator />
+
+      {/* Models Comparison */}
+      <ModelsComparison />
+
+      {/* Reviews Slider */}
+      <ReviewsSlider />
+
+      {/* Courier Landing */}
+      <CourierLanding />
+
+      {/* Repair Service Landing */}
+      <RepairServiceLanding />
 
       {/* SEO Sections */}
       <SEOSections />
